@@ -1,0 +1,7 @@
+host: "127.0.0.1"
+port: "3306"
+user: "root"
+password: "root"
+database: "beango"
+charset: "utf8mb4"
+url: root:root@tcp(127.0.0.1:3306)/beango?charset=utf8mb4&loc=Local&parseTime=true"
