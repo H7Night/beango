@@ -19,13 +19,13 @@ type mysqlConfig struct {
 }
 
 func ConnectDatabase() {
-	mysqlConfig, err := loadMysqlConfig("../config/mysql.yml")
+	mysqlConfig, err := loadMysqlConfig("config/mysql.yml")
 	if err != nil {
-		return
+		panic("faild to load database config")
 	}
 	db, err := connectMysql(mysqlConfig)
 	if err != nil {
-		return
+		panic("faild to connect database")
 	}
 	fmt.Println("成功连接到数据库：", db)
 }
@@ -44,7 +44,7 @@ func loadMysqlConfig(path string) (*mysqlConfig, error) {
 }
 
 func connectMysql(config *mysqlConfig) (*gorm.DB, error) {
-	url := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&loc=Local&parseTime=tru",
+	url := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&loc=Local&parseTime=true",
 		config.User,
 		config.Password,
 		config.Host,
