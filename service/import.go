@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -32,10 +33,10 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := ConvertGBKtoUTF8withBom(fil)
 
 	// 保存转换后文件
-	// filename := "convert-alipay.csv"
-	// targetFile, _ := os.Create(filename)
-	// defer targetFile.Close()
-	// targetFile.Write(content)
+	filename := "convert-alipay.csv"
+	targetFile, _ := os.Create(filename)
+	defer targetFile.Close()
+	targetFile.Write(content)
 
 	reader := csv.NewReader(bufio.NewReader(bytes.NewReader(content)))
 	// 不强制所有行字段数一致
@@ -59,10 +60,9 @@ func ImportAlipayCSV(c *gin.Context) {
 		}
 		records = append(records, row)
 	}
-	// 输出解析的内容
-	for _, row := range records {
-		fmt.Println(row)
-	}
+
+	TransAlipay(records)
+
 	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
 }
 
@@ -106,9 +106,9 @@ func ImportWechatCSV(c *gin.Context) {
 		}
 		records = append(records, row)
 	}
-	for _, row := range records {
-		fmt.Println(row)
-	}
+
+	TransWechat(records)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
 }
 
