@@ -91,9 +91,11 @@ func TransAlipay(records [][]string) []string {
 			record.Amount,
 			record.Amount,
 		)
+		fmt.Println(entry)
+
 		result = append(result, entry)
 	}
-	fmt.Println(result)
+
 	return result
 }
 
@@ -107,6 +109,7 @@ func TransWechat(records [][]string) []string {
 		if len(row) < 11 {
 			continue
 		}
+		// 获取时间和日期
 		transactionTime := strings.TrimSpace(row[0])
 		timeParts := strings.Split(transactionTime, " ")
 		if len(timeParts) < 2 {
@@ -119,7 +122,7 @@ func TransWechat(records [][]string) []string {
 		// transactionType := strings.TrimSpace(row[4])
 		amount := strings.TrimSpace(row[5])
 		status := strings.TrimSpace(row[7])
-
+		// 忽略退款
 		if status == "已全额退款" || status == "对方已退还" {
 			continue
 		}

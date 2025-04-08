@@ -1,11 +1,14 @@
 package service
 
 import (
+	"beango/core"
+	"beango/model"
 	"bufio"
 	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 
@@ -62,7 +65,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	}
 
 	TransAlipay(records)
-
+	SaveImportTransaction()
 	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
 }
 
@@ -112,7 +115,7 @@ func ImportWechatCSV(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
 }
 
-// 支付宝账单GBK转UTF8
+// ConvertGBKtoUTF8withBom 支付宝账单GBK转UTF8
 func ConvertGBKtoUTF8withBom(r io.Reader) ([]byte, error) {
 	gbkReader := transform.NewReader(bufio.NewReader(r), simplifiedchinese.GBK.NewDecoder())
 	// GBK解码器
@@ -121,4 +124,20 @@ func ConvertGBKtoUTF8withBom(r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 	return append(utf8Bom, utf8Content...), nil
+}
+
+func SaveImportTransaction(transaction []model.ImportTranscation) error {
+	db := core.GetDB()
+	for _, tx := range transaction {
+		var existing model.ImportTranscation
+		err := db.Where("uuid=?", tx.UUID).First(&existing).Error
+		if err != nil {
+			continue
+		}
+		if err := db.Create(&tx).Error; err != nil {
+			log.Printf("插入失败: uuid=%s, err=%v\n", tx.UUID, err)
+			continue
+		}
+	}
+	return nil
 }

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"beango/model"
 	"fmt"
+	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -9,27 +11,32 @@ import (
 	"gorm.io/gorm"
 )
 
+var db *gorm.DB
+
 type mysqlConfig struct {
 	Host     string `yaml:"host"`
 	Port     string `yaml:"port"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
-	Database string `yaml:"databse"`
+	Database string `yaml:"database"`
 	Charset  string `yaml:"charset"`
 }
 
+// ConnectDatabase 连接数据库
 func ConnectDatabase() {
 	mysqlConfig, err := loadMysqlConfig("config/mysql.yml")
 	if err != nil {
 		panic("faild to load database config")
 	}
-	db, err := connectMysql(mysqlConfig)
+	db, err = connectMysql(mysqlConfig)
 	if err != nil {
 		panic("faild to connect database")
 	}
-	fmt.Println("成功连接到数据库：", db)
+	fmt.Println("成功连接到数据库")
+	initDatabase(db)
 }
 
+// 读取配置
 func loadMysqlConfig(path string) (*mysqlConfig, error) {
 	file, err := os.ReadFile(path)
 	if err != nil {
@@ -43,6 +50,7 @@ func loadMysqlConfig(path string) (*mysqlConfig, error) {
 	return &config, nil
 }
 
+// 根据配置连接数据库
 func connectMysql(config *mysqlConfig) (*gorm.DB, error) {
 	url := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&loc=Local&parseTime=true",
 		config.User,
@@ -56,4 +64,15 @@ func connectMysql(config *mysqlConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("连接数据库失败:%w", err)
 	}
 	return db, err
+}
+
+func initDatabase(db *gorm.DB) {
+	err := db.AutoMigrate(&model.ImportTranscation{})
+	if err != nil {
+		log.Fatalf("Failed to migrate: %v", err)
+	}
+}
+
+func GetDB() *gorm.DB {
+	return db
 }
