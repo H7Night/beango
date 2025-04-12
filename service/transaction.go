@@ -1,11 +1,14 @@
 package service
 
 import (
+	"beango/model"
 	"fmt"
+	"gorm.io/gorm"
+	"log"
 	"strings"
 )
 
-type AlipayRecord struct {
+type TransactionRecord struct {
 	TransactionTime   string
 	TransactionCat    string
 	Counterparty      string
@@ -19,7 +22,7 @@ type AlipayRecord struct {
 	Discount          bool
 }
 
-func TransAlipay(records [][]string) []string {
+func TransAlipay(records [][]string, db *gorm.DB) []string {
 	var result []string
 	if len(records) <= 24 {
 		fmt.Println("Too few records to process")
@@ -50,7 +53,7 @@ func TransAlipay(records [][]string) []string {
 			paymentMethod = strings.Split(paymentMethod, "&")[0]
 		}
 
-		record := AlipayRecord{
+		record := TransactionRecord{
 			TransactionTime:   strings.TrimSpace(row[0]),
 			TransactionCat:    strings.TrimSpace(row[1]),
 			Counterparty:      strings.TrimSpace(row[2]),
@@ -71,35 +74,14 @@ func TransAlipay(records [][]string) []string {
 			continue
 		}
 
-		date := timeParts[0]
-		time := timeParts[1]
-
-		entry := fmt.Sprintf(`
-		time: "%s"
-		uuid: "%s"
-		status: "%s"
-		Expenses:Misc                                 %s CNY
-		Assets:Alipay                                -%s CNY
-		%s * "%s" "%s"
-		`,
-			date,
-			record.Counterparty,
-			record.Commodity,
-			time,
-			record.UUID,
-			record.TransactionStatus,
-			record.Amount,
-			record.Amount,
-		)
-		fmt.Println(entry)
-
+		entry := formatTransactionEntry(db, record)
 		result = append(result, entry)
 	}
-
+	fmt.Println(result)
 	return result
 }
 
-func TransWechat(records [][]string) []string {
+func TransWechat(records [][]string, db *gorm.DB) []string {
 	var result []string
 	if len(records) <= 16 {
 		return result
@@ -116,8 +98,14 @@ func TransWechat(records [][]string) []string {
 			fmt.Printf("Skipping row %d: invalid time format: %s\n", i+24, transactionTime)
 			continue
 		}
-		date := timeParts[0]
-		time := timeParts[1]
+		transactionType := strings.TrimSpace(row[4])
+		if transactionType == "不计收支" {
+			transactionType = "/"
+		}
+		paymentMethod := strings.TrimSpace(row[6])
+		if paymentMethod == "" {
+			paymentMethod = "零钱"
+		}
 
 		// transactionType := strings.TrimSpace(row[4])
 		amount := strings.TrimSpace(row[5])
@@ -126,26 +114,55 @@ func TransWechat(records [][]string) []string {
 		if status == "已全额退款" || status == "对方已退还" {
 			continue
 		}
-
-		entry := fmt.Sprintf(`
-		%s * "%s" "%s"
-    	time: "%s"
-		uuid: "%s"
-		status: "%s"
-		Expenses:Misc                                 %s CNY
-		Assets:WeChat                                -%s CNY
-		`,
-			date,
-			strings.TrimSpace(row[2]), // counterparty
-			strings.TrimSpace(row[3]), // commodity
-			time,
-			strings.TrimSpace(row[8]), // uuid
-			status,
-			amount,
-			amount,
-		)
+		record := TransactionRecord{
+			TransactionTime:   transactionTime,
+			TransactionCat:    strings.TrimSpace(row[1]),
+			Counterparty:      strings.TrimSpace(row[2]),
+			Commodity:         strings.TrimSpace(row[3]),
+			TransactionType:   transactionType,
+			Amount:            amount,
+			PaymentMethod:     paymentMethod,
+			TransactionStatus: status,
+			Notes:             strings.TrimSpace(row[10]),
+			UUID:              strings.TrimSpace(row[8]),
+			Discount:          false,
+		}
+		entry := formatTransactionEntry(db, record)
 		result = append(result, entry)
 	}
 	fmt.Println(result)
 	return result
+}
+
+func formatTransactionEntry(db *gorm.DB, record TransactionRecord) string {
+	timeParts := strings.Split(record.TransactionTime, " ")
+	if len(timeParts) != 2 {
+		log.Printf("Invalid time format: %s\n", record.TransactionTime)
+		return ""
+	}
+	date := timeParts[0]
+	time := timeParts[1]
+
+	mappedAccount := model.ApplyAccountMapping(db, record.PaymentMethod, record.TransactionType)
+
+	amount := record.Amount
+	entry := fmt.Sprintf(`
+	%s * "%s" "%s"
+    time: "%s"
+    uuid: "%s"
+    status: "%s"
+    Expenses:Misc                                 %s CNY
+    %s                                 -%s CNY`,
+		date,
+		record.Counterparty,
+		record.Commodity,
+		time,
+		record.UUID,
+		record.TransactionStatus,
+		amount,
+		mappedAccount,
+		amount,
+	)
+
+	return entry
 }

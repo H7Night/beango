@@ -63,9 +63,9 @@ func ImportAlipayCSV(c *gin.Context) {
 		}
 		records = append(records, row)
 	}
-
-	TransAlipay(records)
-	SaveImportTransaction()
+	db := core.GetDB()
+	TransAlipay(records, db)
+	//SaveImportTransaction()
 	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
 }
 
@@ -109,8 +109,8 @@ func ImportWechatCSV(c *gin.Context) {
 		}
 		records = append(records, row)
 	}
-
-	TransWechat(records)
+	db := core.GetDB()
+	TransWechat(records, db)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
 }

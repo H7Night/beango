@@ -2,15 +2,16 @@ package main
 
 import (
 	"beango/core"
-	"beango/service"
-
+	"beango/routes"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	core.ConnectDatabase()
 	r := gin.Default()
-	r.POST("/upload/alipay_csv", service.ImportAlipayCSV)
-	r.POST("/upload/wechat_csv", service.ImportWechatCSV)
+	db := core.GetDB()
+
+	routes.RegisterAccountMappingRoutes(r, db)
+	routes.RegisteImportRoutes(r)
 	r.Run(":10777")
 }
