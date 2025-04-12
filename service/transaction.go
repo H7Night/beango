@@ -144,6 +144,7 @@ func formatTransactionEntry(db *gorm.DB, record TransactionRecord) string {
 	time := timeParts[1]
 
 	mappedAccount := model.ApplyAccountMapping(db, record.PaymentMethod, record.TransactionType)
+	mappedCategory := model.ApplyCategoryMapping(db, record.TransactionCat, record.TransactionType)
 
 	amount := record.Amount
 	entry := fmt.Sprintf(`
@@ -151,7 +152,7 @@ func formatTransactionEntry(db *gorm.DB, record TransactionRecord) string {
     time: "%s"
     uuid: "%s"
     status: "%s"
-    Expenses:Misc                                 %s CNY
+    %s                                  %s CNY
     %s                                 -%s CNY`,
 		date,
 		record.Counterparty,
@@ -159,6 +160,7 @@ func formatTransactionEntry(db *gorm.DB, record TransactionRecord) string {
 		time,
 		record.UUID,
 		record.TransactionStatus,
+		mappedCategory,
 		amount,
 		mappedAccount,
 		amount,

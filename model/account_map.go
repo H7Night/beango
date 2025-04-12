@@ -11,7 +11,7 @@ type AccountMapping struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement"`
 	Keyword   string    `gorm:"type:varchar(64);index"` // 模糊关键词
 	Account   string    `gorm:"type:varchar(128)"`      // 映射后的账户名
-	IsExpense bool      `gorm:"default:true"`           // 是否为支出账户
+	Type      string    `gorm:"type:varchar(32);index"` // 映射类型: payment / expense / income 等
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
@@ -34,6 +34,27 @@ func ApplyAccountMapping(db *gorm.DB, paymentMethod, transactionType string) str
 	}
 
 	return "Assets:Other"
+}
+
+func ApplyCategoryMapping(db *gorm.DB, category, paymentMethod string) string {
+	var mappings []AccountMapping
+	if err := db.Where("type in ?", []string{"expense", "income"}).Find(&mappings).Error; err != nil {
+		log.Printf("Failed to load account mappings: %v", err)
+		return fallbackCategory(paymentMethod)
+	}
+	for _, m := range mappings {
+		if strings.Contains(category, m.Keyword) || strings.Contains(paymentMethod, m.Keyword) {
+			return m.Account
+		}
+	}
+	return fallbackCategory(paymentMethod)
+}
+
+func fallbackCategory(typ string) string {
+	if strings.Contains(typ, "收入") {
+		return "Income:Other"
+	}
+	return "Expenses:Other"
 }
 
 func CreateAccountMapping(db *gorm.DB, keyword, account string) error {
