@@ -19,7 +19,7 @@ func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
 	db := core.GetDB()
 
 	for i, row := range records[16:] {
-		record, skip, reason := parseWechatRow(i+17, row)
+		record, skip, reason := parseWechatRow(row)
 		if skip {
 			log.Printf("Skipping row %d: %s", i+17, reason)
 			continue
@@ -32,7 +32,7 @@ func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
 	return result
 }
 
-func parseWechatRow(rowIndex int, row []string) (model.TransactionRecord, bool, string) {
+func parseWechatRow(row []string) (model.TransactionRecord, bool, string) {
 	if len(row) < 11 {
 		return model.TransactionRecord{}, true, "incomplete row"
 	}
@@ -60,7 +60,7 @@ func parseWechatRow(rowIndex int, row []string) (model.TransactionRecord, bool, 
 	if transactionType == "不计收支" {
 		for keyword, inferredType := range model.CommodityTypeMap {
 			if strings.Contains(commodity, keyword) {
-				if inferredType == "跳过" {
+				if inferredType == "skip" {
 					return model.TransactionRecord{}, true, fmt.Sprintf("keyword '%s' matches skip type", keyword)
 				}
 				transactionType = inferredType

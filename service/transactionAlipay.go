@@ -16,6 +16,7 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		log.Println("Too few records to process")
 		return result
 	}
+outerLoop:
 	for _, row := range records[24:] {
 		if len(row) < 12 {
 			continue
@@ -27,12 +28,12 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		if transactionType == "不计收支" {
 			// 依次检查 commodity 中包含的关键词
 			matched := false
-			for keyword, inferredType := range model.CommodityTypeMap {
+			for keyword, mapType := range model.CommodityTypeMap {
 				if strings.Contains(commodity, keyword) {
-					if inferredType == "跳过" {
-						continue
+					if mapType == "skip" {
+						continue outerLoop
 					}
-					transactionType = inferredType
+					transactionType = mapType
 					matched = true
 					break
 				}

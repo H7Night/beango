@@ -74,7 +74,9 @@ func ImportAlipayCSV(c *gin.Context) {
 	if err != nil {
 		log.Fatal("无法加载账户映射:", err)
 	}
-	TransAlipay(records, mappings)
+	res := TransAlipay(records, mappings)
+	outputFile := "output/alipay.bean"
+	TransToBeancount(res, outputFile)
 	//SaveImportTransaction()
 	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
 }
@@ -124,8 +126,9 @@ func ImportWechatCSV(c *gin.Context) {
 	if err != nil {
 		log.Fatal("无法加载账户映射:", err)
 	}
-	TransWechat(records, mappings)
-
+	res := TransWechat(records, mappings)
+	outputFile := "output/wechat.bean"
+	TransToBeancount(res, outputFile)
 	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
 }
 
