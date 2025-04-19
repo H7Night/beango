@@ -5,6 +5,7 @@ import (
 	"beango/model"
 	"fmt"
 	"gorm.io/gorm"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -21,7 +22,7 @@ func MatchAccountFromDB(text string, mappings []model.AccountMapping, targetType
 func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 	var result []string
 	if len(records) <= 24 {
-		fmt.Println("Too few records to process")
+		log.Println("Too few records to process")
 		return result
 	}
 	for _, row := range records[24:] {
@@ -96,7 +97,7 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		db := core.GetDB()
 		entry := formatTransactionEntry(db, record, mappings)
 		result = append(result, entry)
-		fmt.Println(result)
+		log.Print(result)
 	}
 	return result
 }
@@ -115,7 +116,7 @@ func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
 		transactionTime := strings.TrimSpace(row[0])
 		timeParts := strings.Split(transactionTime, " ")
 		if len(timeParts) < 2 {
-			fmt.Printf("Skipping row %d: invalid time format: %s\n", i+24, transactionTime)
+			log.Printf("Skipping row %d: invalid time format: %s\n", i+24, transactionTime)
 			continue
 		}
 		transactionType := strings.TrimSpace(row[4])

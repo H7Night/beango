@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
@@ -60,7 +59,7 @@ func ImportAlipayCSV(c *gin.Context) {
 			break
 		} else if err != nil {
 			// 跳过脏数据行
-			fmt.Println("skip wrong row", err)
+			log.Println("skip wrong row", err)
 			continue
 		}
 		// 只打印符合要求列数的
@@ -112,7 +111,7 @@ func ImportWechatCSV(c *gin.Context) {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println("skip wrong row", err)
+			log.Println("skip wrong row", err)
 			continue
 		}
 		if len(row) < 5 {
