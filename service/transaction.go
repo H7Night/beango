@@ -5,7 +5,7 @@ import (
 	"beango/model"
 	"fmt"
 	"gorm.io/gorm"
-	"log"
+	"strconv"
 	"strings"
 )
 
@@ -24,23 +24,44 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		fmt.Println("Too few records to process")
 		return result
 	}
-	for i, row := range records[24:] {
+	for _, row := range records[24:] {
 		if len(row) < 12 {
 			continue
 		}
 		commodity := strings.TrimSpace(row[4])
 		// 收/支
 		transactionType := row[5]
+		// commodity 分类关键词映射
+		var commodityTypeMap = map[string]string{
+			"还款":     "支出",
+			"信用卡还款":  "支出",
+			"花呗自动还款": "支出",
+			"买入":     "支出",
+			"收益发放":   "收入",
+			"转入":     "跳过",
+		}
+
 		if transactionType == "不计收支" {
-			if strings.Contains(commodity, "收益发放") {
-				transactionType = "收入"
-			} else if strings.Contains(commodity, "买入") {
-				transactionType = "支出"
-			} else if strings.Contains(commodity, "转入") {
-				continue
-			} else if strings.Contains(commodity, "信用卡还款") {
-				transactionType = "支出"
+			// 依次检查 commodity 中包含的关键词
+			matched := false
+			for keyword, inferredType := range commodityTypeMap {
+				if strings.Contains(commodity, keyword) {
+					if inferredType == "跳过" {
+						continue
+					}
+					transactionType = inferredType
+					matched = true
+					break
+				}
 			}
+			if !matched {
+				transactionType = "/" // 保持为未知类型
+			}
+		}
+
+		transactionStatus := strings.TrimSpace(row[8])
+		if transactionStatus == "交易关闭" {
+			continue
 		}
 		// 收付款方式
 		paymentMethod := strings.TrimSpace(row[7])
@@ -66,23 +87,17 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 			TransactionType:   transactionType,
 			Amount:            strings.TrimSpace(row[6]),
 			PaymentMethod:     paymentMethod,
-			TransactionStatus: strings.TrimSpace(row[8]),
+			TransactionStatus: transactionStatus,
 			Notes:             notes,
 			UUID:              strings.TrimSpace(row[9]),
 			Discount:          discount,
 		}
 
-		// 拆分时间字段
-		timeParts := strings.Split(record.TransactionTime, " ")
-		if len(timeParts) != 2 {
-			fmt.Printf("Skipping row %d: invalid time format: %s\n", i+24, record.TransactionTime)
-			continue
-		}
 		db := core.GetDB()
 		entry := formatTransactionEntry(db, record, mappings)
 		result = append(result, entry)
+		fmt.Println(result)
 	}
-	fmt.Println(result)
 	return result
 }
 
@@ -135,96 +150,62 @@ func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
 		db := core.GetDB()
 		entry := formatTransactionEntry(db, record, mappings)
 		result = append(result, entry)
+		print(result)
 	}
-	fmt.Println(result)
 	return result
 }
+
 func formatTransactionEntry(db *gorm.DB, record model.TransactionRecord, mappings []model.AccountMapping) string {
-	// 合并用于匹配的内容字段
-	content := record.Counterparty + " " + record.TransactionCat + " " + record.Notes
-
-	// 判断是支出还是收入
-	isExpense := record.TransactionType == "支出"
-	isIncome := record.TransactionType == "收入"
-
+	db.Find(&mappings)
 	// 默认账户
 	expenseAccount := "Expenses:Other"
 	incomeAccount := "Income:Other"
 	assetAccount := "Assets:Other"
-
-	// 查询 expense/income 映射
-	if isExpense || isIncome {
-		var mappings []model.AccountMapping
-		matchType := "expense"
-		if isIncome {
-			matchType = "income"
-		}
-		db.Where("type = ?", matchType).Find(&mappings)
-		for _, mapping := range mappings {
-			if strings.Contains(content, mapping.Keyword) {
-				if isExpense {
+	// 可匹配的字段组合
+	combinedText := record.Counterparty + record.Commodity + record.PaymentMethod + record.Notes
+	for _, mapping := range mappings {
+		if strings.Contains(combinedText, mapping.Keyword) {
+			switch mapping.Type {
+			case "expense":
+				if expenseAccount == "Expenses:Other" {
 					expenseAccount = mapping.Account
-				} else {
+				}
+			case "income":
+				if incomeAccount == "Income:Other" {
 					incomeAccount = mapping.Account
 				}
-				break
+			case "asset":
+				if assetAccount == "Assets:Other" {
+					assetAccount = mapping.Account
+				}
 			}
 		}
+
 	}
 
-	// 查询资产账户映射（根据支付方式）
-	var assetMappings []model.AccountMapping
-	db.Where("type = ?", "asset").Find(&assetMappings)
-	for _, mapping := range assetMappings {
-		if strings.Contains(record.PaymentMethod, mapping.Keyword) {
-			assetAccount = mapping.Account
-			break
-		}
-	}
-
-	// 时间与金额处理
-	dateTime := strings.Split(record.TransactionTime, " ")
-	if len(dateTime) != 2 {
-		log.Printf("invalid TransactionTime format: %s", record.TransactionTime)
-		return ""
-	}
-	date, time := dateTime[0], dateTime[1]
-	amount := record.Amount
+	date := strings.Split(record.TransactionTime, " ")[0]
+	time := strings.Split(record.TransactionTime, " ")[1]
+	amount, _ := strconv.ParseFloat(record.Amount, 64)
 	commodity := record.Commodity
 
 	// 生成 Beancount 条目
-	var entry string
-	if isExpense {
-		entry = fmt.Sprintf(`
-			%s * "%s" "%s"
-			time: "%s"
-			uuid: "%s"
-			status: "%s"
-			%s				 %s CNY
-			%s				-%s CNY
-`, date, record.Counterparty, commodity,
-			time,
-			record.UUID,
-			record.TransactionStatus,
-			expenseAccount, amount,
-			assetAccount, amount)
-	} else if isIncome {
-		entry = fmt.Sprintf(`
-			%s * "%s" "%s"
-			time: "%s"
-			uuid: "%s"
-			status: "%s"
-			%s    		-%s CNY
-			%s     		 %s CNY
-`, date, record.Counterparty, commodity,
-			time,
-			record.UUID,
-			record.TransactionStatus,
-			incomeAccount, amount,
-			assetAccount, amount)
-	} else {
-		// 其他类型（如退款、转账等）可根据需要扩展
-		entry = fmt.Sprintf("; unsupported transaction type: %s\n", record.TransactionType)
+	var entryBuilder strings.Builder
+	entryBuilder.WriteString(fmt.Sprintf("%s * \"%s\" \"%s\"\n", date, record.Counterparty, commodity))
+	entryBuilder.WriteString(fmt.Sprintf("    time: \"%s\"\n", time))
+	entryBuilder.WriteString(fmt.Sprintf("    uuid: \"%s\"\n", record.UUID))
+	entryBuilder.WriteString(fmt.Sprintf("    status: \"%s\"\n", record.TransactionStatus))
+
+	switch record.TransactionType {
+	case "支出":
+		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
+	case "收入":
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+	default:
+		// 不计收支或其他类型
+		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
+		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
 	}
-	return entry
+	return entryBuilder.String()
 }

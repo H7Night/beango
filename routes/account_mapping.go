@@ -28,7 +28,7 @@ func RegisterAccountMappingRoutes(router *gin.Engine, db *gorm.DB) {
 			})
 			return
 		}
-		if err := model.CreateAccountMapping(db, body.Keyword, body.Account); err != nil {
+		if err := model.CreateAccountMapping(db, body.Keyword, body.Account, body.Type); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
@@ -57,7 +57,7 @@ func RegisterAccountMappingRoutes(router *gin.Engine, db *gorm.DB) {
 			return
 
 		}
-		if err := model.UpdateAccountMapping(db, uint(id), body.Keyword, body.Account); err != nil {
+		if err := model.UpdateAccountMapping(db, uint(id), body.Keyword, body.Account, body.Type); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
