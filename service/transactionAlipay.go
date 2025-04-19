@@ -10,15 +10,6 @@ import (
 	"strings"
 )
 
-func MatchAccountFromDB(text string, mappings []model.AccountMapping, targetType string, defaultAccount string) string {
-	for _, mapping := range mappings {
-		if mapping.Type == targetType && strings.Contains(text, mapping.Keyword) {
-			return mapping.Account
-		}
-	}
-	return defaultAccount
-}
-
 func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 	var result []string
 	if len(records) <= 24 {
@@ -32,20 +23,11 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		commodity := strings.TrimSpace(row[4])
 		// 收/支
 		transactionType := row[5]
-		// commodity 分类关键词映射
-		var commodityTypeMap = map[string]string{
-			"还款":     "支出",
-			"信用卡还款":  "支出",
-			"花呗自动还款": "支出",
-			"买入":     "支出",
-			"收益发放":   "收入",
-			"转入":     "跳过",
-		}
 
 		if transactionType == "不计收支" {
 			// 依次检查 commodity 中包含的关键词
 			matched := false
-			for keyword, inferredType := range commodityTypeMap {
+			for keyword, inferredType := range model.CommodityTypeMap {
 				if strings.Contains(commodity, keyword) {
 					if inferredType == "跳过" {
 						continue
@@ -95,68 +77,14 @@ func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
 		}
 
 		db := core.GetDB()
-		entry := formatTransactionEntry(db, record, mappings)
+		entry := formatAlipayTransactionEntry(db, record, mappings)
 		result = append(result, entry)
 		log.Print(result)
 	}
 	return result
 }
 
-func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
-	var result []string
-	if len(records) <= 16 {
-		return result
-	}
-
-	for i, row := range records[16:] {
-		if len(row) < 11 {
-			continue
-		}
-		// 获取时间和日期
-		transactionTime := strings.TrimSpace(row[0])
-		timeParts := strings.Split(transactionTime, " ")
-		if len(timeParts) < 2 {
-			log.Printf("Skipping row %d: invalid time format: %s\n", i+24, transactionTime)
-			continue
-		}
-		transactionType := strings.TrimSpace(row[4])
-		if transactionType == "不计收支" {
-			transactionType = "/"
-		}
-		paymentMethod := strings.TrimSpace(row[6])
-		if paymentMethod == "" {
-			paymentMethod = "零钱"
-		}
-
-		amount := strings.TrimSpace(row[5])
-		status := strings.TrimSpace(row[7])
-		// 忽略退款
-		if status == "已全额退款" || status == "对方已退还" {
-			continue
-		}
-		record := model.TransactionRecord{
-			TransactionTime:   transactionTime,
-			TransactionCat:    strings.TrimSpace(row[1]),
-			Counterparty:      strings.TrimSpace(row[2]),
-			Commodity:         strings.TrimSpace(row[3]),
-			TransactionType:   transactionType,
-			Amount:            amount,
-			PaymentMethod:     paymentMethod,
-			TransactionStatus: status,
-			Notes:             strings.TrimSpace(row[10]),
-			UUID:              strings.TrimSpace(row[8]),
-			Discount:          false,
-		}
-
-		db := core.GetDB()
-		entry := formatTransactionEntry(db, record, mappings)
-		result = append(result, entry)
-		print(result)
-	}
-	return result
-}
-
-func formatTransactionEntry(db *gorm.DB, record model.TransactionRecord, mappings []model.AccountMapping) string {
+func formatAlipayTransactionEntry(db *gorm.DB, record model.TransactionRecord, mappings []model.AccountMapping) string {
 	db.Find(&mappings)
 	// 默认账户
 	expenseAccount := "Expenses:Other"

@@ -96,10 +96,10 @@ func ImportWechatCSV(c *gin.Context) {
 	content, _ := io.ReadAll(fil)
 
 	// 保存转换后文件
-	// filename := "convert-wechat.csv"
-	// targetFile, _ := os.Create(filename)
-	// defer targetFile.Close()
-	// targetFile.Write(content)
+	filename := "convert-wechat.csv"
+	targetFile, _ := os.Create(filename)
+	defer targetFile.Close()
+	targetFile.Write(content)
 
 	reader := csv.NewReader(bufio.NewReader(bytes.NewReader(content)))
 	reader.FieldsPerRecord = -1
