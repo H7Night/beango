@@ -41,7 +41,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := ConvertGBKtoUTF8withBom(fil)
 
 	// 保存转换后文件
-	filename := "convert-alipay.csv"
+	filename := "output/convert-alipay.csv"
 	targetFile, _ := os.Create(filename)
 	defer targetFile.Close()
 	targetFile.Write(content)
@@ -78,7 +78,12 @@ func ImportAlipayCSV(c *gin.Context) {
 	outputFile := "output/alipay.bean"
 	TransToBeancount(res, outputFile)
 	//SaveImportTransaction()
-	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
+	data, err := ReadFile(outputFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
 }
 
 func ImportWechatCSV(c *gin.Context) {
@@ -98,7 +103,7 @@ func ImportWechatCSV(c *gin.Context) {
 	content, _ := io.ReadAll(fil)
 
 	// 保存转换后文件
-	filename := "convert-wechat.csv"
+	filename := "output/convert-wechat.csv"
 	targetFile, _ := os.Create(filename)
 	defer targetFile.Close()
 	targetFile.Write(content)
@@ -129,7 +134,12 @@ func ImportWechatCSV(c *gin.Context) {
 	res := TransWechat(records, mappings)
 	outputFile := "output/wechat.bean"
 	TransToBeancount(res, outputFile)
-	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
+	data, err := ReadFile(outputFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, data)
 }
 
 // ConvertGBKtoUTF8withBom 支付宝账单GBK转UTF8
@@ -157,4 +167,12 @@ func SaveImportTransaction(transaction []model.ImportTranscation) error {
 		}
 	}
 	return nil
+}
+
+func ReadFile(filepath string) (string, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
