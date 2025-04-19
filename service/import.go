@@ -7,18 +7,24 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+	"gorm.io/gorm"
 	"io"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/gin-gonic/gin"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 )
 
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
+
+func LoadAccountMappingsFromDB(db *gorm.DB) ([]model.AccountMapping, error) {
+	var mappings []model.AccountMapping
+	err := db.Find(&mappings).Error
+	return mappings, err
+}
 
 func ImportAlipayCSV(c *gin.Context) {
 	file, err := c.FormFile("file")
@@ -64,7 +70,12 @@ func ImportAlipayCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 	db := core.GetDB()
-	TransAlipay(records, db)
+
+	mappings, err := LoadAccountMappingsFromDB(db)
+	if err != nil {
+		log.Fatal("无法加载账户映射:", err)
+	}
+	TransAlipay(records, mappings)
 	//SaveImportTransaction()
 	c.JSON(http.StatusOK, gin.H{"message": "CSV read success"})
 }
@@ -110,7 +121,11 @@ func ImportWechatCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 	db := core.GetDB()
-	TransWechat(records, db)
+	mappings, err := LoadAccountMappingsFromDB(db)
+	if err != nil {
+		log.Fatal("无法加载账户映射:", err)
+	}
+	TransWechat(records, mappings)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Wechat CSV read success"})
 }
