@@ -83,7 +83,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.String(http.StatusOK, string(data))
 }
 
 func ImportWechatCSV(c *gin.Context) {
@@ -139,7 +139,7 @@ func ImportWechatCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, data)
+	c.String(http.StatusOK, string(data))
 }
 
 // ConvertGBKtoUTF8withBom 支付宝账单GBK转UTF8
