@@ -2,6 +2,7 @@ package main
 
 import (
 	"beango/core"
+	"beango/middleware"
 	"beango/routes"
 	"github.com/gin-gonic/gin"
 )
@@ -9,6 +10,7 @@ import (
 func main() {
 	core.ConnectDatabase()
 	r := gin.Default()
+	r.Use(middleware.CorsMiddleware())
 	db := core.GetDB()
 
 	routes.RegisterAccountMappingRoutes(r, db)
