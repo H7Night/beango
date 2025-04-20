@@ -12,15 +12,83 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"unicode/utf8"
 )
 
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
+func ImportCSV(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get file:" + err.Error()})
+		return
+	}
+	baseFile, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file" + err.Error()})
+		return
+	}
+	defer baseFile.Close()
+
+	buf := new(bytes.Buffer)
+	io.Copy(buf, baseFile)
+	raw := buf.Bytes()
+
+	fileType := ""
+	if IsGBK(raw) {
+		fileType = "alipay"
+	} else if IsUTF8(raw) {
+		fileType = "wechat"
+	}
+
+	if fileType == "" {
+		log.Println("analyse file by row")
+		reader := bufio.NewReader(bytes.NewReader(raw))
+		var lines []string
+		for i := 0; i < 30; i++ {
+			line, err := reader.ReadString('\n')
+			if err != nil && err != io.EOF {
+				break
+			}
+			lines = append(lines, line)
+			if err == io.EOF {
+				break
+			}
+		}
+		alipayIdent := "支付宝（中国）网络技术有限公司"
+		wechatIdent := "微信支付账单明细列表"
+
+		if len(lines) >= 24 && strings.Contains(lines[23], alipayIdent) {
+			fileType = "alipay"
+		} else if len(lines) >= 16 && strings.Contains(lines[15], wechatIdent) {
+			fileType = "wechat"
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无法识别上传文件类型（支付宝或微信）"})
+			return
+		}
+	}
+
+	// 还原 Request.Body 内容给子方法使用
+	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+	// 调用对应处理方法
+	switch fileType {
+	case "alipay":
+		ImportAlipayCSV(c)
+	case "wechat":
+		ImportWechatCSV(c)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "未知文件类型"})
+		return
+	}
+}
+
 func ImportAlipayCSV(c *gin.Context) {
 	err := model.LoadAccountMappingsFromDB()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	file, err := c.FormFile("file")
@@ -62,8 +130,11 @@ func ImportAlipayCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res := TransAlipay(records)
-
+	res, err := TransAlipay(records)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	// 输出.bean文件
 	outputFile := "output/alipay.bean"
 	TransToBeancount(res, outputFile)
@@ -75,6 +146,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, data)
+
 }
 
 func ImportWechatCSV(c *gin.Context) {
@@ -89,14 +161,14 @@ func ImportWechatCSV(c *gin.Context) {
 			"error": "Failed to get file" + err.Error()})
 		return
 	}
-	fil, err := file.Open()
+	baseFile, err := file.Open()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to open file" + err.Error()})
 		return
 	}
-	defer fil.Close()
-	content, _ := io.ReadAll(fil)
+	defer baseFile.Close()
+	content, _ := io.ReadAll(baseFile)
 
 	// 保存转换后的内容
 	filename := "output/convert-wechat.csv"
@@ -123,8 +195,11 @@ func ImportWechatCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res := TransWechat(records)
-
+	res, err := TransWechat(records)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	outputFile := "output/wechat.bean"
 	TransToBeancount(res, outputFile)
 
@@ -134,6 +209,7 @@ func ImportWechatCSV(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, data)
+
 }
 
 // ConvertGBKtoUTF8withBom 支付宝账单GBK转UTF8
@@ -171,4 +247,14 @@ func SaveImportTransaction(transaction []model.ImportTranscation) error {
 		}
 	}
 	return nil
+}
+
+func IsGBK(data []byte) bool {
+	decoder := simplifiedchinese.GBK.NewDecoder()
+	_, err := decoder.Bytes(data)
+	return err == nil
+}
+
+func IsUTF8(data []byte) bool {
+	return utf8.Valid(data)
 }

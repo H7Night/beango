@@ -2,6 +2,7 @@ package service
 
 import (
 	"beango/model"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -10,11 +11,11 @@ import (
 
 var commodityTypeMap = model.CommodityTypeMap
 
-func TransAlipay(records [][]string) []string {
+func TransAlipay(records [][]string) ([]string, error) {
 	var result []string
 	if len(records) <= 24 {
 		log.Println("Too few records to process")
-		return result
+		return nil, errors.New("too few records to process")
 	}
 outerLoop:
 	for _, row := range records[24:] {
@@ -78,9 +79,9 @@ outerLoop:
 
 		entry := formatAlipayTransactionEntry(record)
 		result = append(result, entry)
-		log.Print(result)
+		//log.Print(result)
 	}
-	return result
+	return result, nil
 }
 
 func formatAlipayTransactionEntry(record model.TransactionRecord) string {

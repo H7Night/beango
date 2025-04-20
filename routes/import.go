@@ -6,6 +6,7 @@ import (
 )
 
 func RegisteImportRoutes(r *gin.Engine) {
+	r.POST("/upload", service.ImportCSV)
 	r.POST("/upload/alipay_csv", service.ImportAlipayCSV)
 	r.POST("/upload/wechat_csv", service.ImportWechatCSV)
 }

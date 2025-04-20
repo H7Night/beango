@@ -2,16 +2,17 @@ package service
 
 import (
 	"beango/model"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 )
 
-func TransWechat(records [][]string) []string {
+func TransWechat(records [][]string) ([]string, error) {
 	var result []string
 	if len(records) <= 16 {
-		return result
+		return nil, errors.New("too few records to process")
 	}
 
 	for _, row := range records[16:] {
@@ -22,9 +23,9 @@ func TransWechat(records [][]string) []string {
 
 		entry := formatWechatTransactionEntry(record)
 		result = append(result, entry)
-		log.Print(result)
+		//log.Print(result)
 	}
-	return result
+	return result, nil
 }
 
 func parseWechatRow(row []string) (model.TransactionRecord, bool) {
