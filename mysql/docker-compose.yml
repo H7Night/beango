@@ -6,7 +6,7 @@ services:
     container_name: mysql8.3
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root  # 设置 root 用户的密码为 root
+      MYSQL_ROOT_PASSWORD: root
     ports:
       - "3306:3306"
     volumes:

@@ -1,7 +1,6 @@
-package core
+package model
 
 import (
-	"beango/model"
 	"fmt"
 	"log"
 	"os"
@@ -67,8 +66,8 @@ func connectMysql(config *mysqlConfig) (*gorm.DB, error) {
 }
 
 func initDatabase(db *gorm.DB) {
-	err := db.AutoMigrate(&model.ImportTranscation{})
-	err = db.AutoMigrate(&model.AccountMapping{})
+	err := db.AutoMigrate(&ImportTranscation{})
+	err = db.AutoMigrate(&AccountMapping{})
 	if err != nil {
 		log.Fatalf("Failed to migrate: %v", err)
 	}

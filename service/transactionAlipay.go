@@ -1,16 +1,16 @@
 package service
 
 import (
-	"beango/core"
 	"beango/model"
 	"fmt"
-	"gorm.io/gorm"
 	"log"
 	"strconv"
 	"strings"
 )
 
-func TransAlipay(records [][]string, mappings []model.AccountMapping) []string {
+var commodityTypeMap = model.CommodityTypeMap
+
+func TransAlipay(records [][]string) []string {
 	var result []string
 	if len(records) <= 24 {
 		log.Println("Too few records to process")
@@ -21,14 +21,14 @@ outerLoop:
 		if len(row) < 12 {
 			continue
 		}
+
 		commodity := strings.TrimSpace(row[4])
-		// 收/支
-		transactionType := row[5]
+		transactionType := row[5] // 收支
 
 		if transactionType == "不计收支" {
-			// 依次检查 commodity 中包含的关键词
+			// 检查 commodity 中包含的关键词
 			matched := false
-			for keyword, mapType := range model.CommodityTypeMap {
+			for keyword, mapType := range commodityTypeMap {
 				if strings.Contains(commodity, keyword) {
 					if mapType == "skip" {
 						continue outerLoop
@@ -42,25 +42,24 @@ outerLoop:
 				transactionType = "/" // 保持为未知类型
 			}
 		}
-
+		// 交易状态
 		transactionStatus := strings.TrimSpace(row[8])
 		if transactionStatus == "交易关闭" {
 			continue
 		}
 		// 收付款方式
 		paymentMethod := strings.TrimSpace(row[7])
-		if paymentMethod == "" {
+		// 支付方式分离，如果有&，选&前面的
+		discount := strings.Contains(paymentMethod, "&")
+		if discount {
+			paymentMethod = strings.Split(paymentMethod, "&")[0]
+		} else if paymentMethod == "" {
 			paymentMethod = "余额"
 		}
 		// 备注
 		notes := strings.TrimSpace(row[11])
 		if notes == "" {
 			notes = "/"
-		}
-		// 支付方式分离，如果有&，选&前面的
-		discount := strings.Contains(paymentMethod, "&")
-		if discount {
-			paymentMethod = strings.Split(paymentMethod, "&")[0]
 		}
 
 		record := model.TransactionRecord{
@@ -77,21 +76,20 @@ outerLoop:
 			Discount:          discount,
 		}
 
-		db := core.GetDB()
-		entry := formatAlipayTransactionEntry(db, record, mappings)
+		entry := formatAlipayTransactionEntry(record)
 		result = append(result, entry)
 		log.Print(result)
 	}
 	return result
 }
 
-func formatAlipayTransactionEntry(db *gorm.DB, record model.TransactionRecord, mappings []model.AccountMapping) string {
-	db.Find(&mappings)
+func formatAlipayTransactionEntry(record model.TransactionRecord) string {
+	mappings := model.GetAccountMappings()
 	// 默认账户
 	expenseAccount := "Expenses:Other"
 	incomeAccount := "Income:Other"
 	assetAccount := "Assets:Other"
-	// 可匹配的字段组合
+	// 可匹配的字段组合(交易对方+商品信息+付款方式+备注)
 	combinedText := record.Counterparty + record.Commodity + record.PaymentMethod + record.Notes
 	for _, mapping := range mappings {
 		if strings.Contains(combinedText, mapping.Keyword) {
@@ -132,8 +130,7 @@ func formatAlipayTransactionEntry(db *gorm.DB, record model.TransactionRecord, m
 	case "收入":
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
-	default:
-		// 不计收支或其他类型
+	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
 	}

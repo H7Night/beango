@@ -1,17 +1,17 @@
 package main
 
 import (
-	"beango/core"
 	"beango/middleware"
+	"beango/model"
 	"beango/routes"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	core.ConnectDatabase()
+	model.ConnectDatabase()
 	r := gin.Default()
 	r.Use(middleware.CorsMiddleware())
-	db := core.GetDB()
+	db := model.GetDB()
 
 	routes.RegisterAccountMappingRoutes(r, db)
 	routes.RegisteImportRoutes(r)

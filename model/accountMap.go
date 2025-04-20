@@ -2,8 +2,11 @@ package model
 
 import (
 	"gorm.io/gorm"
+	"log"
 	"time"
 )
+
+var mappings []AccountMapping
 
 type AccountMapping struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement"`
@@ -12,6 +15,19 @@ type AccountMapping struct {
 	Type      string    `gorm:"type:varchar(32)"`       // 类型: expense / income / asset 等
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+// LoadAccountMappingsFromDB 加载数据库映射库
+func LoadAccountMappingsFromDB() error {
+	err := GetDB().Find(&mappings).Error
+	if err != nil {
+		log.Fatal("无法加载账户映射:", err)
+	}
+	return err
+}
+
+func GetAccountMappings() []AccountMapping {
+	return mappings
 }
 
 func CreateAccountMapping(db *gorm.DB, keyword, account, mappingType string) error {

@@ -1,46 +1,43 @@
 package service
 
 import (
-	"beango/core"
 	"beango/model"
 	"fmt"
-	"gorm.io/gorm"
 	"log"
 	"strconv"
 	"strings"
 )
 
-func TransWechat(records [][]string, mappings []model.AccountMapping) []string {
+func TransWechat(records [][]string) []string {
 	var result []string
 	if len(records) <= 16 {
 		return result
 	}
 
-	db := core.GetDB()
-
-	for i, row := range records[16:] {
-		record, skip, reason := parseWechatRow(row)
+	for _, row := range records[16:] {
+		record, skip := parseWechatRow(row)
 		if skip {
-			log.Printf("Skipping row %d: %s", i+17, reason)
 			continue
 		}
 
-		entry := formatWechatTransactionEntry(db, record, mappings)
+		entry := formatWechatTransactionEntry(record)
 		result = append(result, entry)
 		log.Print(result)
 	}
 	return result
 }
 
-func parseWechatRow(row []string) (model.TransactionRecord, bool, string) {
+func parseWechatRow(row []string) (model.TransactionRecord, bool) {
 	if len(row) < 11 {
-		return model.TransactionRecord{}, true, "incomplete row"
+		log.Printf("row too short: %s", row)
+		return model.TransactionRecord{}, true
 	}
 
 	transactionTime := strings.TrimSpace(row[0])
 	timeParts := strings.Split(transactionTime, " ")
 	if len(timeParts) < 2 {
-		return model.TransactionRecord{}, true, fmt.Sprintf("invalid time format: %s", transactionTime)
+		log.Printf("invalid time format: %s", transactionTime)
+		return model.TransactionRecord{}, true
 	}
 
 	transactionType := strings.TrimSpace(row[4])
@@ -53,15 +50,16 @@ func parseWechatRow(row []string) (model.TransactionRecord, bool, string) {
 
 	// 跳过退款类交易
 	if status == "已全额退款" || status == "对方已退还" {
-		return model.TransactionRecord{}, true, "refund transaction"
+		log.Printf("invalid status: %s", row)
+		return model.TransactionRecord{}, true
 	}
 
-	// 默认推断类型
 	if transactionType == "不计收支" {
 		for keyword, inferredType := range model.CommodityTypeMap {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
-					return model.TransactionRecord{}, true, fmt.Sprintf("keyword '%s' matches skip type", keyword)
+					log.Printf("skip commodity: %s", commodity)
+					return model.TransactionRecord{}, true
 				}
 				transactionType = inferredType
 				break
@@ -74,7 +72,7 @@ func parseWechatRow(row []string) (model.TransactionRecord, bool, string) {
 	if transactionCat == "零钱提现" || transactionCat == "零钱充值" {
 		transactionType = "转账"
 	}
-
+	// 金额
 	amount := strings.TrimPrefix(strings.TrimSpace(row[5]), "¥")
 
 	return model.TransactionRecord{
@@ -89,11 +87,11 @@ func parseWechatRow(row []string) (model.TransactionRecord, bool, string) {
 		Notes:             strings.TrimSpace(row[10]),
 		UUID:              strings.TrimSpace(row[8]),
 		Discount:          false,
-	}, false, ""
+	}, false
 }
 
-func formatWechatTransactionEntry(db *gorm.DB, record model.TransactionRecord, mappings []model.AccountMapping) string {
-	db.Find(&mappings)
+func formatWechatTransactionEntry(record model.TransactionRecord) string {
+	mappings := model.GetAccountMappings()
 
 	// 默认账户
 	expenseAccount := "Expenses:Other"
@@ -183,7 +181,7 @@ func formatWechatTransactionEntry(db *gorm.DB, record model.TransactionRecord, m
 	case "转账":
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
-	default:
+	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
 	}
