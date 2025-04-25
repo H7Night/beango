@@ -5,15 +5,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 // UTF-8 BOM 的字节序列
@@ -257,4 +259,35 @@ func IsGBK(data []byte) bool {
 
 func IsUTF8(data []byte) bool {
 	return utf8.Valid(data)
+}
+
+func UploadZipHandler(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get file" + err.Error()})
+		return
+	}
+	password := c.PostForm("password")
+	uploadPath := "./files"
+	if err := os.MkdirAll(uploadPath, os.ModePerm); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	filePath := filepath.Join(uploadPath, file.Filename)
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 生成目标解压路径：./extracted/<zip文件名不含扩展名>/
+	baseName := strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
+	outputDir := filepath.Join("./files", baseName)
+
+	if err := UnzipWithPassword(filePath, outputDir, password); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "upload and unzip success", "location": outputDir})
+
 }
