@@ -2,10 +2,6 @@ package model
 
 import "time"
 
-package model
-
-import "time"
-
 type BeancountTransaction struct {
 	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	TransactionTime   string    `gorm:"type:varchar(50)" json:"date"`
@@ -21,4 +17,3 @@ type BeancountTransaction struct {
 	Source            string    `gorm:"type:varchar(32)" json:"source"`
 	CreateAt          time.Time `gorm:"autoCreateTime" json:"createAt"`
 }
-

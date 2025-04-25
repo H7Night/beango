@@ -18,7 +18,7 @@ func TransAlipay(records [][]string) ([]string, error) {
 		return nil, errors.New("too few records to process")
 	}
 outerLoop:
-	for _, row := range records[24:] {
+	for _, row := range records[1:] {
 		if len(row) < 12 {
 			continue
 		}
@@ -68,7 +68,6 @@ outerLoop:
 			notes = "/"
 		}
 
-		// 构造 BeancountTransaction 对象
 		record := model.BeancountTransaction{
 			TransactionTime:   transactionTime,
 			TransactionCat:    transactionCat,
@@ -85,7 +84,7 @@ outerLoop:
 
 		entry := formatAlipayTransactionEntry(record)
 		result = append(result, entry)
-		//log.Print(result)
+
 	}
 	return result, nil
 }

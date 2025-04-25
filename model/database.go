@@ -66,7 +66,7 @@ func connectMysql(config *mysqlConfig) (*gorm.DB, error) {
 }
 
 func initDatabase(db *gorm.DB) {
-	err := db.AutoMigrate(&ImportTranscation{})
+	err := db.AutoMigrate(&BeancountTransaction{})
 	err = db.AutoMigrate(&AccountMapping{})
 	if err != nil {
 		log.Fatalf("Failed to migrate: %v", err)

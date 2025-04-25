@@ -21,6 +21,11 @@ import (
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
+var convertAliCSV = "output/convert-alipay.csv"
+var aliBean = "output/alipay.bean"
+var convertWecCSV = "output/convert-wechat.csv"
+var wecBean = "output/wechat.bean"
+
 func ImportCSV(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -108,8 +113,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := ConvertGBKtoUTF8withBom(baseFile)
 
 	// 保存转换后的内容
-	filename := "output/convert-alipay.csv"
-	targetFile, _ := os.Create(filename)
+	targetFile, _ := os.Create(convertAliCSV)
 	defer targetFile.Close()
 	targetFile.Write(content)
 
@@ -138,11 +142,9 @@ func ImportAlipayCSV(c *gin.Context) {
 		return
 	}
 	// 输出.bean文件
-	outputFile := "output/alipay.bean"
-	TransToBeancount(res, outputFile)
-
+	TransToBeancount(res, aliBean)
 	// 读取.bean内容
-	data, err := ReadFile(outputFile)
+	data, err := ReadFile(aliBean)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
@@ -173,8 +175,7 @@ func ImportWechatCSV(c *gin.Context) {
 	content, _ := io.ReadAll(baseFile)
 
 	// 保存转换后的内容
-	filename := "output/convert-wechat.csv"
-	targetFile, _ := os.Create(filename)
+	targetFile, _ := os.Create(convertWecCSV)
 	defer targetFile.Close()
 	targetFile.Write(content)
 
@@ -202,10 +203,9 @@ func ImportWechatCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	outputFile := "output/wechat.bean"
-	TransToBeancount(res, outputFile)
+	TransToBeancount(res, wecBean)
 
-	data, err := ReadFile(outputFile)
+	data, err := ReadFile(wecBean)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
