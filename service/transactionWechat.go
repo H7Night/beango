@@ -28,31 +28,38 @@ func TransWechat(records [][]string) ([]string, error) {
 	return result, nil
 }
 
-func parseWechatRow(row []string) (model.TransactionRecord, bool) {
+func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 	if len(row) < 11 {
 		log.Printf("row too short: %s", row)
-		return model.TransactionRecord{}, true
+		return model.BeancountTransaction{}, true
 	}
 
+	// 提取字段 + Trim
 	transactionTime := strings.TrimSpace(row[0])
+	transactionCat := strings.TrimSpace(row[1])
+	counterparty := strings.TrimSpace(row[2])
+	commodity := strings.TrimSpace(row[3])
+	transactionType := strings.TrimSpace(row[4])
+	amount := strings.TrimPrefix(strings.TrimSpace(row[5]), "¥")
+	paymentMethod := strings.TrimSpace(row[6])
+	transactionStatus := strings.TrimSpace(row[7])
+	uuid := strings.TrimSpace(row[8])
+	notes := strings.TrimSpace(row[10])
+
 	timeParts := strings.Split(transactionTime, " ")
 	if len(timeParts) < 2 {
 		log.Printf("invalid time format: %s", transactionTime)
-		return model.TransactionRecord{}, true
+		return model.BeancountTransaction{}, true
 	}
 
-	transactionType := strings.TrimSpace(row[4])
-	paymentMethod := strings.TrimSpace(row[6])
 	if paymentMethod == "" {
 		paymentMethod = "零钱"
 	}
-	commodity := strings.TrimSpace(row[3])
-	status := strings.TrimSpace(row[7])
 
 	// 跳过退款类交易
-	if status == "已全额退款" || status == "对方已退还" {
+	if transactionStatus == "已全额退款" || transactionStatus == "对方已退还" {
 		log.Printf("invalid status: %s", row)
-		return model.TransactionRecord{}, true
+		return model.BeancountTransaction{}, true
 	}
 
 	if transactionType == "不计收支" {
@@ -60,7 +67,7 @@ func parseWechatRow(row []string) (model.TransactionRecord, bool) {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
 					log.Printf("skip commodity: %s", commodity)
-					return model.TransactionRecord{}, true
+					return model.BeancountTransaction{}, true
 				}
 				transactionType = inferredType
 				break
@@ -69,29 +76,26 @@ func parseWechatRow(row []string) (model.TransactionRecord, bool) {
 	}
 
 	// 特殊交易类型强制设定为转账
-	transactionCat := strings.TrimSpace(row[1])
 	if transactionCat == "零钱提现" || transactionCat == "零钱充值" {
 		transactionType = "转账"
 	}
-	// 金额
-	amount := strings.TrimPrefix(strings.TrimSpace(row[5]), "¥")
 
-	return model.TransactionRecord{
+	return model.BeancountTransaction{
 		TransactionTime:   transactionTime,
 		TransactionCat:    transactionCat,
-		Counterparty:      strings.TrimSpace(row[2]),
+		Counterparty:      counterparty,
 		Commodity:         commodity,
 		TransactionType:   transactionType,
 		Amount:            amount,
 		PaymentMethod:     paymentMethod,
-		TransactionStatus: status,
-		Notes:             strings.TrimSpace(row[10]),
-		UUID:              strings.TrimSpace(row[8]),
-		Discount:          false,
+		TransactionStatus: transactionStatus,
+		Notes:             notes,
+		UUID:              uuid,
+		Source:            "wechat",
 	}, false
 }
 
-func formatWechatTransactionEntry(record model.TransactionRecord) string {
+func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	mappings := model.GetAccountMappings()
 
 	// 默认账户

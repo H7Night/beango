@@ -23,8 +23,17 @@ outerLoop:
 			continue
 		}
 
+		// 提取字段 + Trim
+		transactionTime := strings.TrimSpace(row[0])
+		transactionCat := strings.TrimSpace(row[1])
+		counterparty := strings.TrimSpace(row[2])
 		commodity := strings.TrimSpace(row[4])
-		transactionType := row[5] // 收支
+		transactionType := strings.TrimSpace(row[5])
+		amount := strings.TrimSpace(row[6])
+		paymentMethod := strings.TrimSpace(row[7])
+		transactionStatus := strings.TrimSpace(row[8])
+		uuid := strings.TrimSpace(row[9])
+		notes := strings.TrimSpace(row[11])
 
 		if transactionType == "不计收支" {
 			// 检查 commodity 中包含的关键词
@@ -44,12 +53,9 @@ outerLoop:
 			}
 		}
 		// 交易状态
-		transactionStatus := strings.TrimSpace(row[8])
 		if transactionStatus == "交易关闭" {
 			continue
 		}
-		// 收付款方式
-		paymentMethod := strings.TrimSpace(row[7])
 		// 支付方式分离，如果有&，选&前面的
 		discount := strings.Contains(paymentMethod, "&")
 		if discount {
@@ -58,23 +64,23 @@ outerLoop:
 			paymentMethod = "余额"
 		}
 		// 备注
-		notes := strings.TrimSpace(row[11])
 		if notes == "" {
 			notes = "/"
 		}
 
-		record := model.TransactionRecord{
-			TransactionTime:   strings.TrimSpace(row[0]),
-			TransactionCat:    strings.TrimSpace(row[1]),
-			Counterparty:      strings.TrimSpace(row[2]),
+		// 构造 BeancountTransaction 对象
+		record := model.BeancountTransaction{
+			TransactionTime:   transactionTime,
+			TransactionCat:    transactionCat,
+			Counterparty:      counterparty,
 			Commodity:         commodity,
 			TransactionType:   transactionType,
-			Amount:            strings.TrimSpace(row[6]),
+			Amount:            amount,
 			PaymentMethod:     paymentMethod,
 			TransactionStatus: transactionStatus,
 			Notes:             notes,
-			UUID:              strings.TrimSpace(row[9]),
-			Discount:          discount,
+			UUID:              uuid,
+			Source:            "alipay",
 		}
 
 		entry := formatAlipayTransactionEntry(record)
@@ -84,7 +90,7 @@ outerLoop:
 	return result, nil
 }
 
-func formatAlipayTransactionEntry(record model.TransactionRecord) string {
+func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 	mappings := model.GetAccountMappings()
 	// 默认账户
 	expenseAccount := "Expenses:Other"

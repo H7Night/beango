@@ -235,10 +235,10 @@ func ReadFile(filepath string) (string, error) {
 }
 
 // SaveImportTransaction 保存解析数据到数据库
-func SaveImportTransaction(transaction []model.ImportTranscation) error {
+func SaveImportTransaction(transaction []model.BeancountTransaction) error {
 	db := model.GetDB()
 	for _, tx := range transaction {
-		var existing model.ImportTranscation
+		var existing model.BeancountTransaction
 		err := db.Where("uuid=?", tx.UUID).First(&existing).Error
 		if err != nil {
 			continue
