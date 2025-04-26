@@ -15,7 +15,7 @@ func TransWechat(records [][]string) ([]string, error) {
 		return nil, errors.New("too few records to process")
 	}
 
-	for _, row := range records[16:] {
+	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
 			continue
@@ -63,7 +63,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 	}
 
 	if transactionType == "不计收支" {
-		for keyword, inferredType := range model.CommodityTypeMap {
+		for keyword, inferredType := range commodityTypeMap {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
 					log.Printf("skip commodity: %s", commodity)

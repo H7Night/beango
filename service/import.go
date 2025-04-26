@@ -5,10 +5,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -20,10 +23,11 @@ import (
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
-var convertAliCSV = "output/convert-alipay.csv"
-var aliBean = "output/alipay.bean"
-var convertWecCSV = "output/convert-wechat.csv"
-var wecBean = "output/wechat.bean"
+const convertAliCSV = "output/convert-alipay.csv"
+const configFile = "config/config.yml"
+const aliBean = "./output"
+const convertWecCSV = "output/convert-wechat.csv"
+const wecBean = "./output"
 
 func ImportCSV(c *gin.Context) {
 	file, err := c.FormFile("file")
@@ -173,12 +177,13 @@ func ImportWechatCSV(c *gin.Context) {
 	defer baseFile.Close()
 	content, _ := io.ReadAll(baseFile)
 
+	cleanContent := preCleanContent(string(content))
 	// 保存转换后的内容
 	targetFile, _ := os.Create(convertWecCSV)
 	defer targetFile.Close()
-	targetFile.Write(content)
+	targetFile.Write([]byte(cleanContent))
 
-	reader := csv.NewReader(bufio.NewReader(bytes.NewReader(content)))
+	reader := csv.NewReader(bufio.NewReader(strings.NewReader(cleanContent)))
 	reader.FieldsPerRecord = -1
 	reader.LazyQuotes = true
 
@@ -191,7 +196,7 @@ func ImportWechatCSV(c *gin.Context) {
 			log.Println("Skip wrong row", err)
 			continue
 		}
-		if len(row) < 5 {
+		if (row[2] == "" && row[3] == "" && row[4] == "") || len(row) < 9 {
 			continue
 		}
 		records = append(records, row)
@@ -225,12 +230,34 @@ func ConvertGBKtoUTF8withBom(r io.Reader) ([]byte, error) {
 }
 
 // ReadFile 读取转换输出的.bean文件内容
-func ReadFile(filepath string) (string, error) {
-	data, err := os.ReadFile(filepath)
+func ReadFile(path string) (string, error) {
+	parten := path + "/2025/0-default/*.bean"
+	files, err := filepath.Glob(parten)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to match files: %v", err)
 	}
-	return string(data), nil
+	if len(files) == 0 {
+		return "", fmt.Errorf(" no files found matching pattern: %s", parten)
+	}
+
+	// 对文件按名称倒序排序（如 04.bean, 03.bean...）
+	sort.Slice(files, func(i, j int) bool {
+		return files[i] > files[j] // 倒序比较
+	})
+
+	var builder strings.Builder
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return "", fmt.Errorf("failed to read file %s: %v", file, err)
+		}
+		builder.Write(data)
+		if len(data) > 0 && data[len(data)-1] != '\n' {
+			builder.WriteByte('\n')
+		}
+
+	}
+	return builder.String(), nil
 }
 
 // SaveImportTransaction 保存解析数据到数据库
@@ -258,4 +285,20 @@ func IsGBK(data []byte) bool {
 
 func IsUTF8(data []byte) bool {
 	return utf8.Valid(data)
+}
+
+// 清理不规范数据
+func preCleanContent(content string) string {
+	content = strings.ReplaceAll(content, "\t", "")
+	//content = strings.ReplaceAll(content, "\"", "")
+	lines := strings.Split(content, "\n")
+	var cleaned []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "/" {
+			continue
+		}
+		cleaned = append(cleaned, line)
+	}
+	return strings.Join(cleaned, "\n")
 }

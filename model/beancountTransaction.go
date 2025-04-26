@@ -4,6 +4,8 @@ import "time"
 
 type BeancountTransaction struct {
 	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreateAt          time.Time `gorm:"autoCreateTime" json:"createAt"`
+	UpdatedAt         time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"updated_at"`
 	TransactionTime   string    `gorm:"type:varchar(50)" json:"date"`
 	UUID              string    `gorm:"type:varchar(64)" json:"uuid"`
 	TransactionCat    string    `gorm:"type:varchar(100)" json:"transactionCat"`
@@ -15,5 +17,4 @@ type BeancountTransaction struct {
 	PaymentMethod     string    `gorm:"type:varchar(50)" json:"paymentMethod"`
 	Notes             string    `gorm:"type:varchar(255)" json:"notes"`
 	Source            string    `gorm:"type:varchar(32)" json:"source"`
-	CreateAt          time.Time `gorm:"autoCreateTime" json:"createAt"`
 }

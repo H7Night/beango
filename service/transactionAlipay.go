@@ -114,7 +114,6 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 				}
 			}
 		}
-
 	}
 
 	date := strings.Split(record.TransactionTime, " ")[0]
