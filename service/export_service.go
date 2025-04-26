@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,12 +42,12 @@ func TransToBeancount(entries []string, path string) error {
 	}
 
 	//如果文件已存在，先删除
-	if _, err := os.Stat(path); err == nil {
-		if err := os.RemoveAll(path); err != nil {
-			log.Printf("failed to remove existing file: %v", err)
-			return err
-		}
-	}
+	//if _, err := os.Stat(path); err == nil {
+	//	if err := os.RemoveAll(path); err != nil {
+	//		log.Printf("failed to remove existing file: %v", err)
+	//		return err
+	//	}
+	//}
 
 	// 组装default
 	for yearMonth, group := range defaultgrouped {

@@ -3,41 +3,39 @@ package routes
 import (
 	"beango/model"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
 
-func RegisterAccountMappingRoutes(router *gin.Engine, db *gorm.DB) {
-	group := router.Group("/account_mappings")
+func RegisterAccountMapRoutes(router *gin.Engine) {
+	group := router.Group("/account_map")
 	group.GET("", func(c *gin.Context) {
-		mappings, err := model.GetAllAccountMapping(db)
+		maps, err := model.GetAllAccountMap()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
+			c.JSON(http.StatusOK, gin.H{
+				"error": err,
 			})
-			return
 		}
-		c.JSON(http.StatusOK, mappings)
+		c.JSON(http.StatusOK, gin.H{"data": maps})
 	})
 	group.POST("/create", func(c *gin.Context) {
-		var body model.AccountMapping
-		if err := c.ShouldBind(&body); err != nil {
+		var accountMap model.AccountMap
+		if err := c.ShouldBind(&accountMap); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		if err := model.CreateAccountMapping(db, body.Keyword, body.Account, body.Type); err != nil {
+		if err := model.CreateAccountMap(accountMap); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "success create"})
+		c.JSON(http.StatusOK, gin.H{"message": "success create", "data": accountMap})
 	})
-	group.PUT("/update", func(c *gin.Context) {
-		idStr := c.Query("id")
+	group.PUT("/update/:id", func(c *gin.Context) {
+		idStr := c.Param("id")
 		if idStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
 			return
@@ -49,24 +47,24 @@ func RegisterAccountMappingRoutes(router *gin.Engine, db *gorm.DB) {
 			})
 			return
 		}
-		var body model.AccountMapping
-		if err := c.ShouldBind(&body); err != nil {
+		var accountMap model.AccountMap
+		if err := c.ShouldBind(&accountMap); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err.Error(),
 			})
 			return
 
 		}
-		if err := model.UpdateAccountMapping(db, uint(id), body.Keyword, body.Account, body.Type); err != nil {
+		if err := model.UpdateAccountMap(id, accountMap); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "success update"})
+		c.JSON(http.StatusOK, gin.H{"message": "success update", "data": accountMap})
 	})
-	group.DELETE("/delete", func(c *gin.Context) {
-		idStr := c.Query("id")
+	group.DELETE("/delete/:id", func(c *gin.Context) {
+		idStr := c.Param("id")
 		if idStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
 			return
@@ -78,12 +76,12 @@ func RegisterAccountMappingRoutes(router *gin.Engine, db *gorm.DB) {
 			})
 			return
 		}
-		if err := model.DeleteAccountMapping(db, uint(id)); err != nil {
+		if err := model.DeleteAccountMap(id); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "success delete"})
+		c.JSON(http.StatusOK, gin.H{"message": "success delete", "data": id})
 	})
 }

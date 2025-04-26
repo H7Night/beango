@@ -53,7 +53,7 @@ outerLoop:
 			}
 		}
 		// 交易状态
-		if transactionStatus == "交易关闭" {
+		if transactionStatus == "交易关闭" || transactionStatus == "退款成功" {
 			continue
 		}
 		// 支付方式分离，如果有&，选&前面的
@@ -90,14 +90,17 @@ outerLoop:
 }
 
 func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
-	mappings := model.GetAccountMappings()
+	accountMap := model.GetAccountMap()
 	// 默认账户
 	expenseAccount := "Expenses:Other"
 	incomeAccount := "Income:Other"
 	assetAccount := "Assets:Other"
+	fromAccount := "Assets:Other"
+	toAccount := "Assets:Other"
+
 	// 可匹配的字段组合(交易对方+商品信息+付款方式+备注)
 	combinedText := record.Counterparty + record.Commodity + record.PaymentMethod + record.Notes
-	for _, mapping := range mappings {
+	for _, mapping := range accountMap {
 		if strings.Contains(combinedText, mapping.Keyword) {
 			switch mapping.Type {
 			case "expense":
@@ -111,6 +114,33 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 			case "asset":
 				if assetAccount == "Assets:Other" {
 					assetAccount = mapping.Account
+				}
+			}
+		}
+	}
+
+	// 转账类型特殊账户匹配逻辑
+	if record.TransactionType == "不计收入" {
+		// 匹配"零钱"账户作为转账一方
+		for _, mapping := range accountMap {
+			if mapping.Type != "asset" {
+				continue
+			}
+			// 匹配 "余额" 关键词
+			if strings.Contains("余额", mapping.Keyword) {
+				if record.TransactionCat == "单次转出" {
+					fromAccount = mapping.Account
+				} else if record.TransactionCat == "单次转入" {
+					toAccount = mapping.Account
+				}
+			}
+
+			// 匹配 Counterparty 关键词
+			if strings.Contains(record.Counterparty, mapping.Keyword) {
+				if record.TransactionCat == "单次转出" {
+					toAccount = mapping.Account
+				} else if record.TransactionCat == "单次转入" {
+					fromAccount = mapping.Account
 				}
 			}
 		}
@@ -135,6 +165,9 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 	case "收入":
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+	case "转账":
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
 	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))

@@ -95,7 +95,7 @@ func ImportCSV(c *gin.Context) {
 }
 
 func ImportAlipayCSV(c *gin.Context) {
-	err := model.LoadAccountMappingsFromDB()
+	err := model.LoadAccountMapFromDB()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -157,7 +157,7 @@ func ImportAlipayCSV(c *gin.Context) {
 }
 
 func ImportWechatCSV(c *gin.Context) {
-	err := model.LoadAccountMappingsFromDB()
+	err := model.LoadAccountMapFromDB()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}

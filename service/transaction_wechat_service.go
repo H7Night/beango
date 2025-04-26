@@ -96,7 +96,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 }
 
 func formatWechatTransactionEntry(record model.BeancountTransaction) string {
-	mappings := model.GetAccountMappings()
+	mappings := model.GetAccountMap()
 
 	// 默认账户
 	expenseAccount := "Expenses:Other"

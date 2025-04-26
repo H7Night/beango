@@ -11,9 +11,9 @@ func main() {
 	model.ConnectDatabase()
 	r := gin.Default()
 	r.Use(middleware.CorsMiddleware())
-	db := model.GetDB()
 
-	routes.RegisterAccountMappingRoutes(r, db)
+	routes.RegisterAccountMapRoutes(r)
 	routes.RegisteImportRoutes(r)
+	routes.RegisterBeangoConfig(r)
 	r.Run(":10777")
 }
