@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-func TransWechat(records [][]string) ([]string, error) {
+func TransWechat(records [][]string) ([]string, []int, error) {
+	lostData[0] = 0
+	lostData[1] = 0
 	var result []string
 	if len(records) <= 16 {
 		return nil, errors.New("too few records to process")
@@ -18,6 +20,7 @@ func TransWechat(records [][]string) ([]string, error) {
 	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
+			lostData[0]++
 			continue
 		}
 
@@ -25,7 +28,7 @@ func TransWechat(records [][]string) ([]string, error) {
 		result = append(result, entry)
 		//log.Print(result)
 	}
-	return result, nil
+	return result, lostData, nil
 }
 
 func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
@@ -66,6 +69,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 		for keyword, inferredType := range commodityTypeMap {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
+					lostData[0]++
 					log.Printf("skip commodity: %s", commodity)
 					return model.BeancountTransaction{}, true
 				}
@@ -189,6 +193,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
+		lostData[1]++
 	}
 
 	return entryBuilder.String()

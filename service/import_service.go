@@ -139,7 +139,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res, err := TransAlipay(records)
+	res, lost, err := TransAlipay(records)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -152,7 +152,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
 	}
-	c.String(http.StatusOK, data)
+	c.String(http.StatusOK, "lostData": lostData, "data": data)
 
 }
 
@@ -214,7 +214,7 @@ func ImportWechatCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
 	}
-	c.String(http.StatusOK, data)
+	c.String(http.StatusOK, "lost":lostData, "data":data)
 
 }
 
