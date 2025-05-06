@@ -9,9 +9,7 @@ import (
 	"strings"
 )
 
-func TransWechat(records [][]string) ([]string, []int, error) {
-	lostData[0] = 0
-	lostData[1] = 0
+func TransWechat(records [][]string) ([]string, error) {
 	var result []string
 	if len(records) <= 16 {
 		return nil, errors.New("too few records to process")
@@ -20,7 +18,6 @@ func TransWechat(records [][]string) ([]string, []int, error) {
 	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
-			lostData[0]++
 			continue
 		}
 
@@ -28,7 +25,7 @@ func TransWechat(records [][]string) ([]string, []int, error) {
 		result = append(result, entry)
 		//log.Print(result)
 	}
-	return result, lostData, nil
+	return result, nil
 }
 
 func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
@@ -69,7 +66,6 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 		for keyword, inferredType := range commodityTypeMap {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
-					lostData[0]++
 					log.Printf("skip commodity: %s", commodity)
 					return model.BeancountTransaction{}, true
 				}
@@ -193,7 +189,6 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
-		lostData[1]++
 	}
 
 	return entryBuilder.String()

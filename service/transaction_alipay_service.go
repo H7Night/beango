@@ -10,16 +10,12 @@ import (
 )
 
 var commodityTypeMap = model.CommodityTypeMap
-var lostData [2]int // 0:skip, 1: undefined
 
-func TransAlipay(records [][]string) ([]string, []int, error) {
-	lostData[0] = 0
-	lostData[1] = 0
-
+func TransAlipay(records [][]string) ([]string, error) {
 	var result []string
 	if len(records) <= 24 {
 		log.Println("Too few records to process")
-		return nil, lostData, errors.New("too few records to process")
+		return nil, errors.New("too few records to process")
 	}
 outerLoop:
 	for _, row := range records[1:] {
@@ -45,7 +41,6 @@ outerLoop:
 			for keyword, mapType := range commodityTypeMap {
 				if strings.Contains(commodity, keyword) {
 					if mapType == "skip" {
-						lostData[0]++
 						continue outerLoop
 					}
 					transactionType = mapType
@@ -59,7 +54,6 @@ outerLoop:
 		}
 		// 交易状态
 		if transactionStatus == "交易关闭" || transactionStatus == "退款成功" {
-			lostData[0]++
 			continue
 		}
 		// 支付方式分离，如果有&，选&前面的
@@ -92,7 +86,7 @@ outerLoop:
 		result = append(result, entry)
 
 	}
-	return result, lostData, nil
+	return result, nil
 }
 
 func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
@@ -177,7 +171,6 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 	default: // 无法解析的数据
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
-		lostData[1]++
 	}
 	return entryBuilder.String()
 }
