@@ -14,7 +14,7 @@ services:
     volumes:
       # - /Users/jhonhe/Public/db:/var/lib/mysql 
       # WSL2 专用路径格式（需先创建目录）
-      - /mnt/c/Users/Hiyashiki/Abandon/Tools/db:/var/lib/mysql
+      - /home/hiyaku/mysql/db:/var/lib/mysql
     command: 
       - --default-authentication-plugins=mysql_native_password
 
