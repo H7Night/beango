@@ -1,20 +1,34 @@
 package service
 
 import (
+	"beango/model"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
-
-const defaultFolder = "0-default"
-const securitFolder = "1-securities"
 
 // TransToBeancount 将交易记录写入 .bean 文件
 func TransToBeancount(entries []string, path string) error {
 	if len(entries) == 0 {
 		return errors.New("trans file is empty")
+	}
+
+	today := time.Now().Format("2006-01-02")
+	timelyDir := filepath.Join(path, today)
+
+	//如果文件已存在，先删除
+	if _, err := os.Stat(timelyDir); err == nil {
+		if err := os.RemoveAll(path); err != nil {
+			fmt.Printf("failed to remove existing file: %v", err)
+			return err
+		}
+	}
+
+	if err := os.MkdirAll(timelyDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", timelyDir, err)
 	}
 
 	defaultgrouped := make(map[string][]string)
@@ -41,14 +55,6 @@ func TransToBeancount(entries []string, path string) error {
 		defaultgrouped[yearMonth] = append(defaultgrouped[yearMonth], entry)
 	}
 
-	//如果文件已存在，先删除
-	//if _, err := os.Stat(path); err == nil {
-	//	if err := os.RemoveAll(path); err != nil {
-	//		log.Printf("failed to remove existing file: %v", err)
-	//		return err
-	//	}
-	//}
-
 	// 组装default
 	for yearMonth, group := range defaultgrouped {
 		parts := strings.Split(yearMonth, "-")
@@ -57,7 +63,9 @@ func TransToBeancount(entries []string, path string) error {
 		}
 		year := parts[0]
 		month := parts[1]
-		dirPath := filepath.Join(path, year, defaultFolder)
+
+		var defaultFolder = model.GetConfigString("defaultFolder", "0-default")
+		dirPath := filepath.Join(timelyDir, year, defaultFolder)
 
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
@@ -83,7 +91,9 @@ func TransToBeancount(entries []string, path string) error {
 		}
 		year := parts[0]
 		month := parts[1]
-		dirPath := filepath.Join(path, year, securitFolder)
+
+		securitFolder := model.GetConfigString("securitFolder", "1-securities")
+		dirPath := filepath.Join(timelyDir, year, securitFolder)
 
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dirPath, err)

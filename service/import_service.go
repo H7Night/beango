@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -25,9 +26,7 @@ var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
 const convertAliCSV = "output/convert-alipay.csv"
 const configFile = "config/config.yml"
-const aliBean = "./output"
 const convertWecCSV = "output/convert-wechat.csv"
-const wecBean = "./output"
 
 func ImportCSV(c *gin.Context) {
 	file, err := c.FormFile("file")
@@ -145,9 +144,10 @@ func ImportAlipayCSV(c *gin.Context) {
 		return
 	}
 	// 输出.bean文件
-	TransToBeancount(res, aliBean)
+	outputFolder := model.GetConfigString("outputFolder", "./output")
+	TransToBeancount(res, outputFolder)
 	// 读取.bean内容
-	data, err := ReadFile(aliBean)
+	data, err := ReadFile(outputFolder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
@@ -207,9 +207,10 @@ func ImportWechatCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	TransToBeancount(res, wecBean)
+	outputFolder := model.GetConfigString("outputFolder", "./output")
+	TransToBeancount(res, outputFolder)
 
-	data, err := ReadFile(wecBean)
+	data, err := ReadFile(outputFolder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
 		return
@@ -230,23 +231,35 @@ func ConvertGBKtoUTF8withBom(r io.Reader) ([]byte, error) {
 }
 
 // ReadFile 读取转换输出的.bean文件内容
-func ReadFile(path string) (string, error) {
-	parten := path + "/2025/0-default/*.bean"
-	files, err := filepath.Glob(parten)
+func ReadFile(basePath string) (string, error) {
+	today := time.Now().Format("2006-01-02")
+	searchDir := filepath.Join(basePath, today)
+
+	var beanFiles []string
+
+	err := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".bean") {
+			beanFiles = append(beanFiles, path)
+		}
+		return nil
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to match files: %v", err)
+		return "", fmt.Errorf("failed to walk directory %s: %v", searchDir, err)
 	}
-	if len(files) == 0 {
-		return "", fmt.Errorf(" no files found matching pattern: %s", parten)
+	if len(beanFiles) == 0 {
+		return "", fmt.Errorf(" no files found matching pattern: %s", searchDir)
 	}
 
 	// 对文件按名称倒序排序（如 04.bean, 03.bean...）
-	sort.Slice(files, func(i, j int) bool {
-		return files[i] > files[j] // 倒序比较
+	sort.Slice(beanFiles, func(i, j int) bool {
+		return beanFiles[i] > beanFiles[j] // 倒序比较
 	})
 
 	var builder strings.Builder
-	for _, file := range files {
+	for _, file := range beanFiles {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return "", fmt.Errorf("failed to read file %s: %v", file, err)

@@ -2,8 +2,11 @@ package model
 
 import (
 	"errors"
-	"gorm.io/gorm"
+	"fmt"
+	"strconv"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type BeangoConfig struct {
@@ -12,6 +15,7 @@ type BeangoConfig struct {
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	ConfigKey   string    `gorm:"type:varchar(255)" json:"config_key"`
 	ConfigValue string    `gorm:"type:varchar(255)" json:"config_value"`
+	Note        string    `gorm:"type:varchar(255)" json:"note"`
 }
 
 func GetBeangoConfigValue(key string) (string, error) {
@@ -24,6 +28,45 @@ func GetBeangoConfigValue(key string) (string, error) {
 		return "", err
 	}
 	return beangoConfig.ConfigValue, nil
+}
+
+func GetConfigString(key, defaultVal string) string {
+	var cfg BeangoConfig
+	err := db.Where("config_key = ?", key).First(&cfg).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return defaultVal
+		}
+		fmt.Printf("读取配置失败 key=%s: %v\n", key, err)
+		return defaultVal
+	}
+	return cfg.ConfigValue
+}
+
+func GetConfigBool(key string, defaultVal bool) bool {
+	val := GetConfigString(key, "")
+	if val == "" {
+		return defaultVal
+	}
+	res, err := strconv.ParseBool(val)
+	if err != nil {
+		fmt.Printf("布尔配置解析失败 key=%s: %v\n", key, err)
+		return defaultVal
+	}
+	return res
+}
+
+func GetConfigInt(key string, defaultVal int) int {
+	val := GetConfigString(key, "")
+	if val == "" {
+		return defaultVal
+	}
+	res, err := strconv.Atoi(val)
+	if err != nil {
+		fmt.Printf("整数配置解析失败 key=%s: %v\n", key, err)
+		return defaultVal
+	}
+	return res
 }
 
 func GetAllBeangoConfig() ([]BeangoConfig, error) {
