@@ -28,6 +28,7 @@ const convertAliCSV = "output/convert-alipay.csv"
 const configFile = "config/config.yml"
 const convertWecCSV = "output/convert-wechat.csv"
 
+// TODO 通用导入
 func ImportCSV(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -93,6 +94,7 @@ func ImportCSV(c *gin.Context) {
 	}
 }
 
+// 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
@@ -138,7 +140,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res, err := TransAlipay(records)
+	res, count, err := TransAlipay(records)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -147,15 +149,22 @@ func ImportAlipayCSV(c *gin.Context) {
 	outputFolder := model.GetConfigString("outputFolder", "./output")
 	TransToBeancount(res, outputFolder)
 	// 读取.bean内容
-	data, err := ReadFile(outputFolder)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
-		return
-	}
-	c.String(http.StatusOK, data)
+	// data, err := ReadFile(outputFolder)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
+	// 	return
+	// }
+	// fmt.Println(data)
+	c.JSON(http.StatusOK, gin.H{
+		"expensCount": count[0],
+		"incomeCount": count[1],
+		"transsCount": count[2],
+		"undefiCount": count[3],
+	})
 
 }
 
+// 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
@@ -210,12 +219,15 @@ func ImportWechatCSV(c *gin.Context) {
 	outputFolder := model.GetConfigString("outputFolder", "./output")
 	TransToBeancount(res, outputFolder)
 
-	data, err := ReadFile(outputFolder)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
-		return
-	}
-	c.String(http.StatusOK, data)
+	// data, err := ReadFile(outputFolder)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
+	// 	return
+	// }
+	// fmt.Println(data)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+	})
 
 }
 

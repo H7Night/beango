@@ -9,16 +9,20 @@ import (
 	"strings"
 )
 
+// 分类关键词
 var commodityTypeMap = model.CommodityTypeMap
+var count = [4]int{0, 0, 0, 0}
 
-func TransAlipay(records [][]string) ([]string, error) {
+func TransAlipay(records [][]string) ([]string, [4]int, error) {
 	var result []string
+	count = [4]int{0, 0, 0, 0}
 	if len(records) <= 24 {
-		log.Println("Too few records to process")
-		return nil, errors.New("too few records to process")
+		log.Println("导入文件不符合支付宝格式")
+		return nil, [4]int{}, errors.New("导入文件不符合支付宝格式")
 	}
 outerLoop:
 	for _, row := range records[1:] {
+		// 前12行为不必要数据
 		if len(row) < 12 {
 			continue
 		}
@@ -49,7 +53,7 @@ outerLoop:
 				}
 			}
 			if !matched {
-				transactionType = "/" // 保持为未知类型
+				// transactionType = "/" // 保持为未知类型
 			}
 		}
 		// 交易状态
@@ -84,12 +88,12 @@ outerLoop:
 
 		entry := formatAlipayTransactionEntry(record)
 		result = append(result, entry)
-
 	}
-	return result, nil
+	return result, count, nil
 }
 
 func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
+
 	accountMap := model.GetAccountMap()
 	// 默认账户
 	expenseAccount := "Expenses:Other"
@@ -118,30 +122,35 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 			}
 		}
 	}
-
-	// 转账类型特殊账户匹配逻辑
-	if record.TransactionType == "不计收入" {
-		// 匹配"零钱"账户作为转账一方
+	if record.TransactionType == "不计收支" {
 		for _, mapping := range accountMap {
 			if mapping.Type != "asset" {
 				continue
 			}
-			// 匹配 "余额" 关键词
-			if strings.Contains("余额", mapping.Keyword) {
-				if record.TransactionCat == "单次转出" {
-					fromAccount = mapping.Account
-				} else if record.TransactionCat == "单次转入" {
-					toAccount = mapping.Account
-				}
+
+			if fromAccount == "Assets:Other" && record.TransactionCat == "单次转出" &&
+				strings.Contains(mapping.Keyword, "余额") {
+				fromAccount = mapping.Account
+				log.Println(fromAccount, mapping.Account)
+				continue
+			}
+			if toAccount == "Assets:Other" && record.TransactionCat == "单次转入" &&
+				strings.Contains(mapping.Keyword, "余额") {
+				toAccount = mapping.Account
+				log.Println(toAccount, mapping.Account)
+				continue
 			}
 
-			// 匹配 Counterparty 关键词
-			if strings.Contains(record.Counterparty, mapping.Keyword) {
-				if record.TransactionCat == "单次转出" {
-					toAccount = mapping.Account
-				} else if record.TransactionCat == "单次转入" {
-					fromAccount = mapping.Account
-				}
+			// 匹配 Counterparty（模糊匹配）
+			if record.TransactionCat == "单次转出" && toAccount == "Assets:Other" &&
+				strings.Contains(record.Counterparty, mapping.Keyword) {
+				log.Println(toAccount)
+				toAccount = mapping.Account
+			}
+			if record.TransactionCat == "单次转入" && fromAccount == "Assets:Other" &&
+				strings.Contains(record.Counterparty, mapping.Keyword) {
+				log.Println(fromAccount)
+				fromAccount = mapping.Account
 			}
 		}
 	}
@@ -160,15 +169,19 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 
 	switch record.TransactionType {
 	case "支出":
+		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
 	case "收入":
+		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
 	case "转账":
+		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
 	default: // 无法解析的数据
+		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
 	}

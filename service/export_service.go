@@ -13,7 +13,7 @@ import (
 // TransToBeancount 将交易记录写入 .bean 文件
 func TransToBeancount(entries []string, path string) error {
 	if len(entries) == 0 {
-		return errors.New("trans file is empty")
+		return errors.New("导入文件内容为空")
 	}
 
 	today := time.Now().Format("2006-01-02")
@@ -21,14 +21,14 @@ func TransToBeancount(entries []string, path string) error {
 
 	//如果文件已存在，先删除
 	if _, err := os.Stat(timelyDir); err == nil {
-		if err := os.RemoveAll(path); err != nil {
-			fmt.Printf("failed to remove existing file: %v", err)
+		if err := os.RemoveAll(timelyDir); err != nil {
+			fmt.Printf("删除目录失败: %v", err)
 			return err
 		}
 	}
 
 	if err := os.MkdirAll(timelyDir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", timelyDir, err)
+		return fmt.Errorf("创建目录失败 %s: %w", timelyDir, err)
 	}
 
 	defaultgrouped := make(map[string][]string)
