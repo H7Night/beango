@@ -62,8 +62,10 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 		return model.BeancountTransaction{}, true
 	}
 
+	commodityMap, _ := model.LoadCommodityMap("config/commodity_map.yml")
+
 	if transactionType == "不计收支" {
-		for keyword, inferredType := range commodityTypeMap {
+		for keyword, inferredType := range commodityMap {
 			if strings.Contains(commodity, keyword) {
 				if inferredType == "skip" {
 					log.Printf("skip commodity: %s", commodity)

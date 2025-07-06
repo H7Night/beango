@@ -160,6 +160,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		"incomeCount": count[1],
 		"transsCount": count[2],
 		"undefiCount": count[3],
+		"skipedCount": count[4],
 	})
 
 }

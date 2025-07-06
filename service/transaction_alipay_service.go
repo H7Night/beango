@@ -9,16 +9,14 @@ import (
 	"strings"
 )
 
-// 分类关键词
-var commodityTypeMap = model.CommodityTypeMap
-var count = [4]int{0, 0, 0, 0}
+var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
 
-func TransAlipay(records [][]string) ([]string, [4]int, error) {
+func TransAlipay(records [][]string) ([]string, [5]int, error) {
 	var result []string
-	count = [4]int{0, 0, 0, 0}
+	count = [5]int{0, 0, 0, 0}
 	if len(records) <= 24 {
 		log.Println("导入文件不符合支付宝格式")
-		return nil, [4]int{}, errors.New("导入文件不符合支付宝格式")
+		return nil, [5]int{}, errors.New("导入文件不符合支付宝格式")
 	}
 outerLoop:
 	for _, row := range records[1:] {
@@ -39,13 +37,17 @@ outerLoop:
 		uuid := strings.TrimSpace(row[9])
 		notes := strings.TrimSpace(row[11])
 
+		commodityMap, _ := model.LoadCommodityMap("config/commodity_map.yml")
+
 		if transactionType == "不计收支" {
 			// 检查 commodity 中包含的关键词
 			matched := false
-			for keyword, mapType := range commodityTypeMap {
+			for keyword, mapType := range commodityMap {
 				if strings.Contains(commodity, keyword) {
 					if mapType == "skip" {
-						continue outerLoop
+						count[4]++
+						fmt.Println(row)   // 输出跳过的记录
+						continue outerLoop //不记录该数据
 					}
 					transactionType = mapType
 					matched = true
@@ -53,7 +55,7 @@ outerLoop:
 				}
 			}
 			if !matched {
-				// transactionType = "/" // 保持为未知类型
+				transactionType = "/" // 保持为未知类型
 			}
 		}
 		// 交易状态
