@@ -25,7 +25,6 @@ import (
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 
 const convertAliCSV = "output/convert-alipay.csv"
-const configFile = "config/config.yml"
 const convertWecCSV = "output/convert-wechat.csv"
 
 // TODO 通用导入
@@ -43,7 +42,10 @@ func ImportCSV(c *gin.Context) {
 	defer baseFile.Close()
 
 	buf := new(bytes.Buffer)
-	io.Copy(buf, baseFile)
+	if _, err := io.Copy(buf, baseFile); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file: " + err.Error()})
+		return
+	}
 	raw := buf.Bytes()
 
 	fileType := ""
@@ -119,7 +121,10 @@ func ImportAlipayCSV(c *gin.Context) {
 	// 保存转换后的内容
 	targetFile, _ := os.Create(convertAliCSV)
 	defer targetFile.Close()
-	targetFile.Write(content)
+	if _, err := targetFile.Write(content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file: " + err.Error()})
+		return
+	}
 
 	reader := csv.NewReader(bufio.NewReader(bytes.NewReader(content)))
 	reader.FieldsPerRecord = -1 // 不强制所有行字段数一致
@@ -145,9 +150,13 @@ func ImportAlipayCSV(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	// 输出.bean文件
 	outputFolder := model.GetConfigString("outputFolder", "./output")
-	TransToBeancount(res, outputFolder)
+	if err := TransToBeancount(res, outputFolder); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert to beancount: " + err.Error()})
+		return
+	}
 	// 读取.bean内容
 	// data, err := ReadFile(outputFolder)
 	// if err != nil {
@@ -191,7 +200,10 @@ func ImportWechatCSV(c *gin.Context) {
 	// 保存转换后的内容
 	targetFile, _ := os.Create(convertWecCSV)
 	defer targetFile.Close()
-	targetFile.Write([]byte(cleanContent))
+	if _, err := targetFile.Write([]byte(cleanContent)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file: " + err.Error()})
+		return
+	}
 
 	reader := csv.NewReader(bufio.NewReader(strings.NewReader(cleanContent)))
 	reader.FieldsPerRecord = -1
@@ -218,14 +230,11 @@ func ImportWechatCSV(c *gin.Context) {
 		return
 	}
 	outputFolder := model.GetConfigString("outputFolder", "./output")
-	TransToBeancount(res, outputFolder)
+	if err := TransToBeancount(res, outputFolder); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert to beancount: " + err.Error()})
+		return
+	}
 
-	// data, err := ReadFile(outputFolder)
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file" + err.Error()})
-	// 	return
-	// }
-	// fmt.Println(data)
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",
 	})
