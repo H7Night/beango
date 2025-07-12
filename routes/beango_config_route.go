@@ -2,9 +2,10 @@ package routes
 
 import (
 	"beango/model"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 func RegisterBeangoConfig(router *gin.Engine) {
@@ -21,7 +22,6 @@ func RegisterBeangoConfig(router *gin.Engine) {
 			"message": "success",
 			"data":    configs,
 		})
-		return
 	})
 	group.POST("/create", func(c *gin.Context) {
 		var beangoConfig model.BeangoConfig
@@ -41,7 +41,6 @@ func RegisterBeangoConfig(router *gin.Engine) {
 			"message": "create successfully",
 			"data":    beangoConfig,
 		})
-		return
 	})
 	group.PUT("/update/:id", func(c *gin.Context) {
 		var beangoConfig model.BeangoConfig

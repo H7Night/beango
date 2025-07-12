@@ -4,6 +4,7 @@ import (
 	"beango/middleware"
 	"beango/model"
 	"beango/routes"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,5 +16,7 @@ func main() {
 	routes.RegisterAccountMapRoutes(r)
 	routes.RegisteImportRoutes(r)
 	routes.RegisterBeangoConfig(r)
-	r.Run(":10777")
+	if err := r.Run(":10777"); err != nil {
+		panic(err)
+	}
 }
