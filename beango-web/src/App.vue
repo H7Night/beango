@@ -6,40 +6,63 @@
           <v-row align="center" justify="center" class="mb-4" no-gutters>
             <v-col cols="4">
               <v-combobox
-                  v-model="selected"
-                  :items="['alipay', 'wechat']"
-                  label="选择类型"
-                  dense
+                v-model="selected"
+                :items="['alipay', 'wechat']"
+                :label="!selected ? '选择类型' : ''"
+                dense
+                density="compact"
+                hide-details
+                style="min-height: 40px; height: 40px; width: 100%;"
               ></v-combobox>
             </v-col>
             <v-col cols="4">
               <v-file-input
-                  label="上传文件"
-                  dense
-                  v-model="file"
-                  :disabled="!selected"
-                  accept=".csv"
-              ></v-file-input>
+                :label="!file ? '上传文件' : ''"
+                dense
+                density="compact"
+                v-model="file"
+                :disabled="!selected"
+                accept=".csv"
+                hide-details
+                :show-size="false"
+                style="min-height: 40px; height: 40px; width: 100%;"
+                class="custom-file-input"
+              >
+                <template #selection>
+                  <span class="file-label" v-if="file">
+                    <span style="margin-left: 4px;">
+                      {{
+                        file.name.length > 8
+                          ? file.name.slice(0, 6) + '...'
+                          : file.name
+                      }}
+                    </span>
+                  </span>
+                </template>
+              </v-file-input>
             </v-col>
             <v-col cols="2">
               <v-btn
-                  color="primary"
-                  class="mt-1"
-                  :disabled="!file || !selected"
-                  @click="uploadFile"
+                color="primary"
+                class="mt-1"
+                :disabled="!file || !selected"
+                @click="uploadFile"
               >
                 上传
               </v-btn>
             </v-col>
           </v-row>
 
-          <v-textarea
-              label="输出结果"
-              rows="20"
-              auto-grow
-              v-model="output"
-              outlined
-          ></v-textarea>
+          <!-- 日志滚动展示 -->
+          <v-card class="mt-4" outlined>
+            <v-card-title>输出日志</v-card-title>
+            <v-card-text style="max-height: 400px; overflow-y: auto;">
+              <pre
+                style="font-family: monospace; font-size: 14px; margin: 0; text-align: left;"
+                v-html="highlightedOutput"
+              ></pre>
+            </v-card-text>
+          </v-card>
         </v-col>
       </v-row>
     </v-container>
@@ -47,12 +70,37 @@
 </template>
 
 <script lang="ts" setup>
-import {ref} from 'vue'
+import {ref, computed} from 'vue'
 import axios from 'axios'
 
 const selected = ref<string | null>(null)
 const file = ref<File | null>(null)
 const output = ref<string>('')
+
+const highlightedOutput = computed(() => {
+  if (!output.value) return ''
+  // 简单高亮：key、string、number
+  let json = output.value
+    .replace(/(&)/g, '&amp;')
+    .replace(/(>)/g, '&gt;')
+    .replace(/(<)/g, '&lt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+      let cls = 'number'
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'key'
+        } else {
+          cls = 'string'
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean'
+      } else if (/null/.test(match)) {
+        cls = 'null'
+      }
+      return `<span class="${cls}">${match}</span>`
+    })
+  return json
+})
 
 const uploadFile = async () => {
   if (!file.value || !selected.value) return
@@ -68,9 +116,9 @@ const uploadFile = async () => {
   try {
     const response = await axios.post(url, formData, {
       headers: {'Content-Type': 'multipart/form-data'},
-      responseType: 'text'
+      responseType: 'json'
     })
-    output.value = response.data
+    output.value = JSON.stringify(response.data, null, 2)
   } catch (error: any) {
     output.value = `请求失败：${error?.response?.data || error.message}`
   }
@@ -78,7 +126,10 @@ const uploadFile = async () => {
 </script>
 
 <style scoped>
-.v-textarea {
-  margin-top: 20px;
-}
+pre { background: transparent; }
+.key { color: #569cd6; }
+.string { color: #d69d85; }
+.number { color: #b5cea8; }
+.boolean { color: #4ec9b0; }
+.null { color: #9cdcfe; }
 </style>
