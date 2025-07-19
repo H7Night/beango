@@ -9,23 +9,25 @@ import (
 	"strings"
 )
 
-func TransWechat(records [][]string) ([]string, error) {
+func TransWechat(records [][]string) ([]string, [5]int, error) {
 	var result []string
+	// 重置计数器
+	count = [5]int{0, 0, 0, 0, 0}
 	if len(records) <= 16 {
-		return nil, errors.New("too few records to process")
+		return nil, [5]int{}, errors.New("导入文件不符合微信格式")
 	}
 
 	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
+			count[4]++
 			continue
 		}
 
 		entry := formatWechatTransactionEntry(record)
 		result = append(result, entry)
-		//log.Print(result)
 	}
-	return result, nil
+	return result, count, nil
 }
 
 func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
@@ -98,8 +100,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 }
 
 func formatWechatTransactionEntry(record model.BeancountTransaction) string {
-	mappings := model.GetAccountMap()
-
+	accountMap := model.GetAccountMap()
 	// 默认账户
 	expenseAccount := "Expenses:Other"
 	incomeAccount := "Income:Other"
@@ -109,8 +110,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 
 	// 可匹配的字段组合
 	combinedText := record.Counterparty + record.Commodity + record.TransactionStatus + record.PaymentMethod + record.Notes
-
-	for _, mapping := range mappings {
+	for _, mapping := range accountMap {
 		if strings.Contains(combinedText, mapping.Keyword) {
 			switch mapping.Type {
 			case "expense":
@@ -132,7 +132,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	// 转账类型特殊账户匹配逻辑
 	if record.TransactionType == "转账" {
 		// 匹配"零钱"账户作为转账一方
-		for _, mapping := range mappings {
+		for _, mapping := range accountMap {
 			if mapping.Type != "asset" {
 				continue
 			}
@@ -171,7 +171,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		commodityNote = record.Commodity + record.Notes
 	}
 
-	// 构造 Beancount 条目
+	// 生成 Beancount 条目
 	var entryBuilder strings.Builder
 	entryBuilder.WriteString(fmt.Sprintf("%s * \"%s\" \"%s\"\n", date, record.Counterparty, commodityNote))
 	entryBuilder.WriteString(fmt.Sprintf("    time: \"%s\"\n", time))
@@ -180,15 +180,19 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 
 	switch record.TransactionType {
 	case "支出":
+		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
 	case "收入":
+		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
 	case "转账":
+		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
-	default: // 无法解析的数据
+	default:
+		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
 	}

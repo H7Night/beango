@@ -9,10 +9,9 @@ import (
 	"strings"
 )
 
-var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
-
 func TransAlipay(records [][]string) ([]string, [5]int, error) {
 	var result []string
+	// 重置计数器
 	count = [5]int{0, 0, 0, 0}
 	if len(records) <= 24 {
 		log.Println("导入文件不符合支付宝格式")

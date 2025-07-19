@@ -23,6 +23,7 @@ import (
 
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
+var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
 
 const convertAliCSV = "output/convert-alipay.csv"
 const convertWecCSV = "output/convert-wechat.csv"
@@ -224,7 +225,7 @@ func ImportWechatCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res, err := TransWechat(records)
+	res, count, err := TransWechat(records)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -236,7 +237,11 @@ func ImportWechatCSV(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "success",
+		"expensCount": count[0],
+		"incomeCount": count[1],
+		"transsCount": count[2],
+		"undefiCount": count[3],
+		"skipedCount": count[4],
 	})
 
 }
