@@ -6,6 +6,11 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	zip "github.com/alexmullins/zip"
+	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"io"
 	"log"
 	"net/http"
@@ -14,91 +19,16 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode/utf8"
-
-	zip "github.com/alexmullins/zip"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 )
 
 // UTF-8 BOM 的字节序列
 var utf8Bom = []byte{0xEF, 0xBB, 0xBF}
 var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
 
-const convertAliCSV = "output/convert-alipay.csv"
-const convertWecCSV = "output/convert-wechat.csv"
+const convertAli = "output/convert-alipay.csv"
+const convertWec = "output/convert-wechat.xlsx"
 
-// TODO 通用导入
-func ImportCSV(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get file:" + err.Error()})
-		return
-	}
-	baseFile, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file" + err.Error()})
-		return
-	}
-	defer baseFile.Close()
-
-	buf := new(bytes.Buffer)
-	if _, err := io.Copy(buf, baseFile); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read file: " + err.Error()})
-		return
-	}
-	raw := buf.Bytes()
-
-	fileType := ""
-	if IsGBK(raw) {
-		fileType = "alipay"
-	} else if IsUTF8(raw) {
-		fileType = "wechat"
-	}
-
-	if fileType == "" {
-		log.Println("analyse file by row")
-		reader := bufio.NewReader(bytes.NewReader(raw))
-		var lines []string
-		for i := 0; i < 30; i++ {
-			line, err := reader.ReadString('\n')
-			if err != nil && err != io.EOF {
-				break
-			}
-			lines = append(lines, line)
-			if err == io.EOF {
-				break
-			}
-		}
-		alipayIdent := "支付宝（中国）网络技术有限公司"
-		wechatIdent := "微信支付账单明细列表"
-
-		if len(lines) >= 24 && strings.Contains(lines[23], alipayIdent) {
-			fileType = "alipay"
-		} else if len(lines) >= 16 && strings.Contains(lines[15], wechatIdent) {
-			fileType = "wechat"
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "无法识别上传文件类型（支付宝或微信）"})
-			return
-		}
-	}
-
-	// 还原 Request.Body 内容给子方法使用
-	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
-	// 调用对应处理方法
-	switch fileType {
-	case "alipay":
-		ImportAlipayCSV(c)
-	case "wechat":
-		ImportWechatCSV(c)
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "未知文件类型"})
-		return
-	}
-}
-
-// 导入 支付宝 账单
+// ImportAlipayCSV 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
@@ -121,7 +51,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := ConvertGBKtoUTF8withBom(baseFile)
 
 	// 保存转换后的内容
-	targetFile, _ := os.Create(convertAliCSV)
+	targetFile, _ := os.Create(convertAli)
 	defer targetFile.Close()
 	if _, err := targetFile.Write(content); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "写入文件失败: " + err.Error()})
@@ -176,7 +106,7 @@ func ImportAlipayCSV(c *gin.Context) {
 
 }
 
-// 导入 微信 账单
+// ImportWechatCSV 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
@@ -185,52 +115,81 @@ func ImportWechatCSV(c *gin.Context) {
 
 	file, err := c.FormFile("file")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "获取文件失败" + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "获取文件失败" + err.Error()})
 		return
 	}
-	baseFile, err := file.Open()
+	srcFile, err := file.Open()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "打开文件失败" + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "打开文件失败" + err.Error()})
 		return
 	}
-	defer baseFile.Close()
-	content, _ := io.ReadAll(baseFile)
+	defer srcFile.Close()
 
-	cleanContent := preCleanContent(string(content))
-	// 保存转换后的内容
-	targetFile, _ := os.Create(convertWecCSV)
-	defer targetFile.Close()
-	if _, err := targetFile.Write([]byte(cleanContent)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "写入文件失败: " + err.Error()})
+	srcExcel, err := excelize.OpenReader(srcFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	sheetName := srcExcel.GetSheetName(0)
+	rows, err := srcExcel.GetRows(sheetName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	reader := csv.NewReader(bufio.NewReader(strings.NewReader(cleanContent)))
-	reader.FieldsPerRecord = -1
-	reader.LazyQuotes = true
+	newExcel := excelize.NewFile()
+	newSheet := newExcel.GetSheetName(0)
+	rowIndex := 1
 
+	for _, row := range rows {
+		var cleanRow []string
+		skip := true
+		for _, cell := range row {
+			val := strings.TrimSpace(cell)
+			if val == "/" {
+				val = "/"
+			}
+			if val != "" {
+				skip = false
+			}
+			cleanRow = append(cleanRow, val)
+		}
+		if skip || len(cleanRow) < 10 || (cleanRow[2] == "" && cleanRow[3] == "" && cleanRow[4] == "") {
+			continue
+		}
+		for colIdx, val := range cleanRow {
+			colName, _ := excelize.CoordinatesToCellName(colIdx+1, rowIndex)
+			newExcel.SetCellValue(newSheet, colName, val)
+		}
+		rowIndex++
+	}
+	// 保存为中间处理文件
+	if err := newExcel.SaveAs(convertWec); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存中间Excel失败: " + err.Error()})
+		return
+	}
+	// 第三步：重新读取中间Excel文件用于业务处理
+	finalExcel, err := excelize.OpenFile(convertWec)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取中间Excel失败: " + err.Error()})
+		return
+	}
+	finalSheet := finalExcel.GetSheetName(0)
+	finalRows, err := finalExcel.GetRows(finalSheet)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取中间Excel内容失败: " + err.Error()})
+		return
+	}
 	var records [][]string
-	for {
-		row, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			log.Println("Skip wrong row", err)
-			continue
-		}
-		if (row[2] == "" && row[3] == "" && row[4] == "") || len(row) < 9 {
-			continue
-		}
+	for _, row := range finalRows {
 		records = append(records, row)
 	}
-
 	res, count, err := TransWechat(records)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	outputFolder := model.GetConfigString("outputFolder", "./output")
 	if err := TransToBeancount(res, outputFolder); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
@@ -299,33 +258,6 @@ func ReadFile(basePath string) (string, error) {
 
 	}
 	return builder.String(), nil
-}
-
-// SaveImportTransaction 保存解析数据到数据库
-func SaveImportTransaction(transaction []model.BeancountTransaction) error {
-	db := model.GetDB()
-	for _, tx := range transaction {
-		var existing model.BeancountTransaction
-		err := db.Where("uuid=?", tx.UUID).First(&existing).Error
-		if err != nil {
-			continue
-		}
-		if err := db.Create(&tx).Error; err != nil {
-			log.Printf("插入失败: uuid=%s, err=%v\n", tx.UUID, err)
-			continue
-		}
-	}
-	return nil
-}
-
-func IsGBK(data []byte) bool {
-	decoder := simplifiedchinese.GBK.NewDecoder()
-	_, err := decoder.Bytes(data)
-	return err == nil
-}
-
-func IsUTF8(data []byte) bool {
-	return utf8.Valid(data)
 }
 
 // 清理不规范数据

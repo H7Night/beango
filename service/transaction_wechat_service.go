@@ -2,7 +2,6 @@ package service
 
 import (
 	"beango/model"
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -13,9 +12,9 @@ func TransWechat(records [][]string) ([]string, [5]int, error) {
 	var result []string
 	// 重置计数器
 	count = [5]int{0, 0, 0, 0, 0}
-	if len(records) <= 16 {
-		return nil, [5]int{}, errors.New("导入文件不符合微信格式")
-	}
+	//if len(records) < 16 {
+	//	return nil, [5]int{}, errors.New("导入文件不符合微信格式")
+	//}
 
 	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
@@ -32,7 +31,7 @@ func TransWechat(records [][]string) ([]string, [5]int, error) {
 
 func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 	if len(row) < 11 {
-		log.Printf("row too short: %s", row)
+		log.Printf("行太短: %s", row)
 		return model.BeancountTransaction{}, true
 	}
 
@@ -50,7 +49,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 
 	timeParts := strings.Split(transactionTime, " ")
 	if len(timeParts) < 2 {
-		log.Printf("invalid time format: %s", transactionTime)
+		log.Printf("时间格式化错误: %s", transactionTime)
 		return model.BeancountTransaction{}, true
 	}
 
@@ -60,7 +59,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 
 	// 跳过退款类交易
 	if transactionStatus == "已全额退款" || transactionStatus == "对方已退还" {
-		log.Printf("invalid status: %s", row)
+		log.Printf("不合规数据: %s", row)
 		return model.BeancountTransaction{}, true
 	}
 
