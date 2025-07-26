@@ -4,7 +4,7 @@
       <v-row class="w-100" justify="center" align="center">
         <v-col cols="12" md="8">
           <v-row align="center" justify="center" class="mb-4" no-gutters>
-            <v-col cols="4">
+            <v-col cols="3">
               <v-combobox
                 v-model="selected"
                 :items="['alipay', 'wechat']"
@@ -15,17 +15,52 @@
                 style="min-height: 40px; height: 40px; width: 100%;"
               ></v-combobox>
             </v-col>
-            <v-col cols="4">
+            <v-col cols="3">
+              <v-select
+                v-model="uploadType"
+                :items="['csv', 'zip']"
+                label="上传格式"
+                dense
+                density="compact"
+                hide-details
+                style="min-height: 40px; height: 40px; width: 100%;"
+              ></v-select>
+            </v-col>
+            <v-col cols="3" v-if="uploadType === 'zip'">
+              <v-text-field
+                v-model="password"
+                label="解压密码"
+                dense
+                density="compact"
+                hide-details
+                type="password"
+                style="min-height: 40px; height: 40px; width: 100%;"
+              ></v-text-field>
+            </v-col>
+            <v-col cols="2">
+              <v-btn
+                color="primary"
+                class="mt-1"
+                :disabled="!file || !selected || (uploadType === 'zip' && !password)"
+                @click="uploadFile"
+              >
+                上传
+              </v-btn>
+            </v-col>
+          </v-row>
+          <!-- 文件选择框单独一行，居中显示 -->
+          <v-row justify="center" align="center" class="mb-2">
+            <v-col cols="auto" class="d-flex justify-center">
               <v-file-input
                 :label="!file ? '上传文件' : ''"
                 dense
                 density="compact"
                 v-model="file"
                 :disabled="!selected"
-                accept=".csv"
+                :accept="uploadType === 'zip' ? '.zip' : '.csv'"
                 hide-details
                 :show-size="false"
-                style="min-height: 40px; height: 40px; width: 100%;"
+                style="min-width: 240px; max-width: 400px; width: auto;"
                 class="custom-file-input"
               >
                 <template #selection>
@@ -41,21 +76,14 @@
                 </template>
               </v-file-input>
             </v-col>
-            <v-col cols="2">
-              <v-btn
-                color="primary"
-                class="mt-1"
-                :disabled="!file || !selected"
-                @click="uploadFile"
-              >
-                上传
-              </v-btn>
-            </v-col>
           </v-row>
 
           <!-- 日志滚动展示 -->
           <v-card class="mt-4" outlined>
-            <v-card-title>输出日志</v-card-title>
+            <v-card-title class="d-flex justify-space-between align-center">
+              输出日志
+              <v-btn small color="error" variant="text" @click="clearLog">清空</v-btn>
+            </v-card-title>
             <v-card-text style="max-height: 400px; overflow-y: auto;">
               <pre
                 style="font-family: monospace; font-size: 14px; margin: 0; text-align: left;"
@@ -75,11 +103,12 @@ import axios from 'axios'
 
 const selected = ref<string | null>(null)
 const file = ref<File | null>(null)
+const password = ref<string>('')
+const uploadType = ref<'csv' | 'zip'>('csv')
 const output = ref<string>('')
 
 const highlightedOutput = computed(() => {
   if (!output.value) return ''
-  // 简单高亮：key、string、number
   let json = output.value
     .replace(/(&)/g, '&amp;')
     .replace(/(>)/g, '&gt;')
@@ -107,11 +136,18 @@ const uploadFile = async () => {
 
   const formData = new FormData()
   formData.append('file', file.value)
+  if (uploadType.value === 'zip') {
+    formData.append('password', password.value)
+  }
 
-  const url =
-      selected.value === 'alipay'
-          ? 'http://127.0.0.1:10777/upload/alipay_csv'
-          : 'http://127.0.0.1:10777/upload/wechat_csv'
+  let url = ''
+  if (selected.value === 'alipay') {
+    url = uploadType.value === 'zip'
+      ? 'http://127.0.0.1:10777/upload/alipay_zip'
+      : 'http://127.0.0.1:10777/upload/alipay_csv'
+  } else if (selected.value === 'wechat') {
+    url = 'http://127.0.0.1:10777/upload/wechat_csv'
+  }
 
   try {
     const response = await axios.post(url, formData, {
@@ -122,6 +158,10 @@ const uploadFile = async () => {
   } catch (error: any) {
     output.value = `请求失败：${error?.response?.data || error.message}`
   }
+}
+
+const clearLog = () => {
+  output.value = ''
 }
 </script>
 
