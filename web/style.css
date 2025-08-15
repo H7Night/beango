@@ -1,0 +1,61 @@
+body {
+    background-color: var(--pico-background-color);
+    color: var(--pico-color);
+}
+
+.main-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh; /* Ensures the container takes up the full viewport height */
+    padding: 2rem;
+}
+
+.content-container {
+    width: 100%;
+    max-width: 1000px; /* New, wider max-width */
+}
+
+.log-container {
+    margin-top: 2rem;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-output {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: var(--pico-background-color);
+    color: var(--pico-color);
+    border: 1px solid var(--pico-border-color);
+    padding: var(--pico-spacing);
+    border-radius: var(--pico-border-radius);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Syntax Highlighting Colors */
+.syntax-key {
+    color: #569cd6; /* Blue */
+}
+
+.syntax-string {
+    color: #d69d85; /* Orange */
+}
+
+.syntax-number {
+    color: #b5cea8; /* Green */
+}
+
+.syntax-boolean {
+    color: #4ec9b0; /* Teal */
+}
+
+.syntax-null {
+    color: #9cdcfe; /* Light blue */
+}
