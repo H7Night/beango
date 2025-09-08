@@ -4,7 +4,7 @@
       <v-row class="w-100" justify="center" align="center">
         <v-col cols="12" md="8">
           <v-row align="center" justify="center" class="mb-4" no-gutters>
-            <v-col cols="3">
+            <v-col cols="4">
               <v-combobox
                 v-model="selected"
                 :items="['alipay', 'wechat']"
@@ -12,57 +12,21 @@
                 dense
                 density="compact"
                 hide-details
-                style="min-height: 40px; height: 40px; width: 100%"
+                style="min-height: 44px; height: 44px; width: 100%;"
               ></v-combobox>
             </v-col>
-            <v-col cols="3">
-              <v-select
-                v-model="uploadType"
-                :items="['csv', 'zip']"
-                label="上传格式"
-                dense
-                density="compact"
-                hide-details
-                style="min-height: 40px; height: 40px; width: 100%"
-              ></v-select>
-            </v-col>
-            <v-col cols="3" v-if="uploadType === 'zip'">
-              <v-text-field
-                v-model="password"
-                label="解压密码"
-                dense
-                density="compact"
-                hide-details
-                type="password"
-                style="min-height: 40px; height: 40px; width: 100%"
-              ></v-text-field>
-            </v-col>
-            <v-col cols="2">
-              <v-btn
-                color="primary"
-                class="mt-1"
-                :disabled="
-                  !file || !selected || (uploadType === 'zip' && !password)
-                "
-                @click="uploadFile"
-              >
-                上传
-              </v-btn>
-            </v-col>
-          </v-row>
-          <!-- 文件选择框单独一行，居中显示 -->
-          <v-row justify="center" align="center" class="mb-2">
-            <v-col cols="auto" class="d-flex justify-center">
+            <v-col cols="4">
               <v-file-input
                 :label="!file ? '上传文件' : ''"
                 dense
                 density="compact"
                 v-model="file"
                 :disabled="!selected"
-                :accept="uploadType === 'zip' ? '.zip' : ''"
+                accept=".csv | .xlsx"
                 hide-details
                 :show-size="false"
-                style="min-width: 240px; max-width: 400px; width: auto"
+                prepend-icon=""
+                style="min-height: 44px; height: 44px; width: 100%;"
                 class="custom-file-input"
               >
                 <template #selection>
@@ -77,6 +41,17 @@
                   </span>
                 </template>
               </v-file-input>
+            </v-col>
+            <v-col cols="2">
+              <v-btn
+                color="primary"
+                class="mt-1"
+                :disabled="!file || !selected"
+                style="height: 44px; width: 100%;"
+                @click="uploadFile"
+              >
+                上传
+              </v-btn>
             </v-col>
           </v-row>
 
@@ -112,8 +87,6 @@ import axios from "axios";
 
 const selected = ref<string | null>(null);
 const file = ref<File | null>(null);
-const password = ref<string>("");
-const uploadType = ref<"unzip" | "zip">("unzip");
 const output = ref<string>("");
 
 const highlightedOutput = computed(() => {
@@ -148,16 +121,10 @@ const uploadFile = async () => {
 
   const formData = new FormData();
   formData.append("file", file.value);
-  if (uploadType.value === "zip") {
-    formData.append("password", password.value);
-  }
 
   let url = "";
   if (selected.value === "alipay") {
-    url =
-      uploadType.value === "zip"
-        ? "http://127.0.0.1:10777/upload/alipay_zip"
-        : "http://127.0.0.1:10777/upload/alipay_csv";
+    url = "http://127.0.0.1:10777/upload/alipay_csv";
   } else if (selected.value === "wechat") {
     url = "http://127.0.0.1:10777/upload/wechat_csv";
   }
@@ -196,5 +163,16 @@ pre {
 }
 .null {
   color: #9cdcfe;
+}
+.custom-file-input .v-input__prepend {
+  display: none !important;
+}
+.file-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 </style>
