@@ -1,0 +1,6 @@
+# SQLite数据库配置
+path: "data/beango.db"  # 数据库文件路径（相对于可执行文件）
+max_idle_conns: 10      # 最大空闲连接数（建议：5-10）
+max_open_conns: 100     # 最大打开连接数（建议：50-100）
+conn_max_lifetime: "1h" # 连接最大生命周期
+debug: false           # 是否开启SQL调试日志（生产环境设为false）
