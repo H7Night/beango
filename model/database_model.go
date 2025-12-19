@@ -184,13 +184,12 @@ func ensureDatabaseDir(dbPath string) error {
 
 // initDatabaseTables 初始化数据库表
 func initDatabaseTables(db *gorm.DB) error {
-	// 开始一个事务来执行所有迁移
 	return db.Transaction(func(tx *gorm.DB) error {
-		// 按依赖顺序迁移表
+		// 按依赖顺序初始化表
 		models := []interface{}{
 			&BeangoConfig{},
 			&AccountMap{},
-			&BeancountTransaction{},
+			// &BeancountTransaction{},
 		}
 
 		for _, model := range models {
