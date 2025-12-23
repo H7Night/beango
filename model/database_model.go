@@ -12,6 +12,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"beango/utils"
 )
 
 var (
@@ -57,9 +59,17 @@ func initDatabaseConnection() (*gorm.DB, error) {
 
 	// 3. 创建GORM配置
 	gormConfig := &gorm.Config{}
-	if !sqliteConfig.Debug {
-		gormConfig.Logger = logger.Default.LogMode(logger.Error)
+	// 设置日志级别
+	var gormLogLevel logger.LogLevel
+	if sqliteConfig.Debug {
+		gormLogLevel = logger.Info
+	} else {
+		gormLogLevel = logger.Error
 	}
+	gormConfig.Logger = logger.New(log.New(utils.Writer, "\r\n", log.LstdFlags), logger.Config{
+		LogLevel: gormLogLevel,
+		Colorful: false,
+	})
 
 	// 4. 连接数据库
 	db, err := gorm.Open(sqlite.Open(sqliteConfig.Path), gormConfig)

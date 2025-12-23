@@ -4,16 +4,25 @@ import (
 	"beango/middleware"
 	"beango/model"
 	"beango/routes"
+	"beango/utils"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// initialize logging early so startup logs are captured
+	f, err := utils.InitLogging()
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
 	model.ConnectDatabase()
 	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
 	r.Use(middleware.CorsMiddleware())
+	r.Use(middleware.ResponseLoggingMiddleware())
 
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		return fmt.Sprintf("[%s] %s %s %d %s \"%s\" %s\n",
