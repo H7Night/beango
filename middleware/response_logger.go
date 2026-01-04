@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// bodyWriter captures response body written by handlers
 type bodyWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
@@ -19,8 +18,6 @@ func (w *bodyWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// ResponseLoggingMiddleware logs response details including status and body
-// right after the handler runs so you can see the program message returned by c.JSON.
 func ResponseLoggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bw := &bodyWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
@@ -29,7 +26,7 @@ func ResponseLoggingMiddleware() gin.HandlerFunc {
 		c.Next()
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		// Limit body size logged to avoid excessive output
+		// 限制日志体积
 		bodyStr := bw.body.String()
 		if len(bodyStr) > 4096 {
 			bodyStr = bodyStr[:4096] + "... (truncated)"

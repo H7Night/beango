@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	// initialize logging early so startup logs are captured
 	f, err := utils.InitLogging()
 	if err != nil {
 		panic(err)

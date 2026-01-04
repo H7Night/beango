@@ -1,0 +1,15 @@
+meta {
+  name: upload_alipay
+  type: http
+  seq: 1
+}
+
+post {
+  url: 127.0.0.1:10777/upload/alipay_csv
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
