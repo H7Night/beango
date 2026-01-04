@@ -1,0 +1,20 @@
+meta {
+  name: import ali zip
+  type: http
+  seq: 6
+}
+
+post {
+  url: http://127.0.0.1:10777/upload/alipay_zip
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  file: @file(/Users/jhonhe/Downloads/支付宝交易明细(20250528-20250628).csv) @contentType(multipart/form-data)
+  password: 871330
+}
+
+settings {
+  encodeUrl: true
+}

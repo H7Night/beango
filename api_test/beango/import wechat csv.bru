@@ -1,0 +1,15 @@
+meta {
+  name: import wechat csv
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://127.0.0.1:10777/upload/wechat_csv
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  file: @file(/Users/jhonhe/Downloads/微信支付账单流水文件(20250625-20250725)——【解压密码可在微信支付公众号查看】.xlsx) @contentType(multipart/form-data)
+}

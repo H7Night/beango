@@ -1,0 +1,18 @@
+meta {
+  name: update config
+  type: http
+  seq: 3
+}
+
+put {
+  url: http://127.0.0.1:10777/beango_config/update/1
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "config_key": "key",
+    "config_value":"value"
+  }
+}

@@ -1,0 +1,19 @@
+meta {
+  name: import ali csv
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://127.0.0.1:10777/upload/alipay_csv
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  file: @file(/Users/jhonhe/Downloads/支付宝交易明细(20250528-20250628).csv) @contentType(multipart/form-data)
+}
+
+body:file {
+  file: @file(/Users/jhonhe/Downloads/alipay_record_20250330_095518.csv) @contentType(text/csv; charset=utf-8)
+}

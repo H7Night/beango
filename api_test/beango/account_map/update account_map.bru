@@ -1,0 +1,23 @@
+meta {
+  name: update account_map
+  type: http
+  seq: 3
+}
+
+put {
+  url: http://127.0.0.1:10777/account_map/update/15
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "keyword": "update",
+    "account": "uuuu",
+    "type": "tttt"
+  }
+}
