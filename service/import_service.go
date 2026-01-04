@@ -78,7 +78,7 @@ func ImportAlipayCSV(c *gin.Context) {
 
 	// 输出.bean文件
 	outputFolder := model.GetConfigString("outputFolder", "./output")
-	if err := TransToBeancount(res, outputFolder); err != nil {
+	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
 	}
@@ -178,7 +178,7 @@ func ImportWechatCSV(c *gin.Context) {
 	}
 
 	outputFolder := model.GetConfigString("outputFolder", "./output")
-	if err := TransToBeancount(res, outputFolder); err != nil {
+	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
 	}
