@@ -3,6 +3,7 @@
     <v-container fluid>
       <v-tabs v-model="activeTab" bg-color="primary" dark>
         <v-tab value="log">日志</v-tab>
+        <v-tab value="account">账户映射</v-tab>
       </v-tabs>
 
       <v-window v-model="activeTab">
@@ -14,6 +15,10 @@
             @clear="handleClearLog"
           />
         </v-window-item>
+        <!-- 账户映射 Tab -->
+        <v-window-item value="account">
+          <AccountTab />
+        </v-window-item>
       </v-window>
     </v-container>
   </v-app>
@@ -22,6 +27,7 @@
 <script lang="ts" setup>
 import { ref } from "vue";
 import LogTab from "./components/LogTab.vue";
+import AccountTab from "./components/AccountTab.vue";
 import { uploadFile } from "./services/BeangoService";
 
 const activeTab = ref("log");
