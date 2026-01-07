@@ -21,8 +21,19 @@ var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不�
 const convertAli = "output/convert-alipay.csv"
 const convertWec = "output/convert-wechat.xlsx"
 
+func initOutputDir() error {
+	if err := os.MkdirAll("output", 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ImportAlipayCSV 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
+	if err := initOutputDir(); err != nil {
+		return
+	}
+
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -95,6 +106,10 @@ func ImportAlipayCSV(c *gin.Context) {
 
 // ImportWechatCSV 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
+	if err := initOutputDir(); err != nil {
+		return
+	}
+
 	err := model.LoadAccountMapFromDB()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
