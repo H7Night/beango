@@ -105,7 +105,7 @@ func CreateAccountMap(accountMap AccountMap) error {
 }
 
 // UpdateAccountMap 更新账户映射
-func UpdateAccountMap(id uint, mapp AccountMap) error {
+func UpdateAccountMap(id uint64, mapp AccountMap) error {
 	err := db.Model(&AccountMap{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"keyword": mapp.Keyword,
 		"account": mapp.Account,
@@ -119,7 +119,7 @@ func UpdateAccountMap(id uint, mapp AccountMap) error {
 }
 
 // DeleteAccountMap 删除账户映射
-func DeleteAccountMap(id uint) error {
+func DeleteAccountMap(id uint64) error {
 	err := db.Where("id = ?", id).Delete(&AccountMap{}).Error
 	if err == nil {
 		// 删除成功后重新加载缓存

@@ -111,7 +111,7 @@ func writeGroupedEntries(grouped map[string][]string, baseDir, subFolder string,
 			if err != nil {
 				return false
 			}
-			return ti.Before(tj)
+			return ti.After(tj)
 		})
 
 		f, err := os.OpenFile(beanFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
