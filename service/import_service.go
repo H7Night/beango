@@ -18,19 +18,9 @@ import (
 
 var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
 
-const convertAli = "output/convert-alipay.csv"
-const convertWec = "output/convert-wechat.xlsx"
-
-func initOutputDir() error {
-	if err := os.MkdirAll("output", 0755); err != nil {
-		return err
-	}
-	return nil
-}
-
 // ImportAlipayCSV 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
-	if err := initOutputDir(); err != nil {
+	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
 
@@ -55,7 +45,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := utils.ConvertGBKtoUTF8withBom(baseFile)
 
 	// 保存转换后的内容
-	targetFile, _ := os.Create(convertAli)
+	targetFile, _ := os.Create(utils.ConvertAli) // Updated
 	defer targetFile.Close()
 	if _, err := targetFile.Write(content); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "写入文件失败: " + err.Error()})
@@ -88,7 +78,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	}
 
 	// 输出.bean文件
-	outputFolder := model.GetConfigString("outputFolder", "./output")
+	outputFolder := model.GetConfigString("outputFolder", "./out")
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
@@ -106,7 +96,7 @@ func ImportAlipayCSV(c *gin.Context) {
 
 // ImportWechatCSV 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
-	if err := initOutputDir(); err != nil {
+	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
 
@@ -166,12 +156,12 @@ func ImportWechatCSV(c *gin.Context) {
 		rowIndex++
 	}
 	// 保存为中间处理文件
-	if err := newExcel.SaveAs(convertWec); err != nil {
+	if err := newExcel.SaveAs(utils.ConvertWec); err != nil { // Updated
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存中间Excel失败: " + err.Error()})
 		return
 	}
 	// 第三步：重新读取中间Excel文件用于业务处理
-	finalExcel, err := excelize.OpenFile(convertWec)
+	finalExcel, err := excelize.OpenFile(utils.ConvertWec) // Updated
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取中间Excel失败: " + err.Error()})
 		return
@@ -192,7 +182,7 @@ func ImportWechatCSV(c *gin.Context) {
 		return
 	}
 
-	outputFolder := model.GetConfigString("outputFolder", "./output")
+	outputFolder := model.GetConfigString("outputFolder", "./out")
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return

@@ -6,7 +6,7 @@ tmp
 .idea
 .vscode
 beancount
-output
+out
 beango-web/node_modules
 beango-web/.vscode
 logs

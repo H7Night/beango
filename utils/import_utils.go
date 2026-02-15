@@ -70,3 +70,13 @@ func ReadFile(basePath string) (string, error) {
 	}
 	return builder.String(), nil
 }
+
+const ConvertAli = "out/convert-alipay.csv"
+const ConvertWec = "out/convert-wechat.xlsx"
+
+func InitOutputDir() error {
+	if err := os.MkdirAll("out", 0755); err != nil {
+		return err
+	}
+	return nil
+}
