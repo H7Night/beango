@@ -15,7 +15,10 @@
       "dom",
       "dom.iterable",
       "esnext"
-    ]
+    ],
+    "paths": {
+      "vuetify/lib/*": ["./node_modules/vuetify/lib/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

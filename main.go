@@ -6,11 +6,14 @@ import (
 	"beango/routes"
 	"beango/utils"
 	"fmt"
+	"os"   // Added
+	"path" // Added
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// Web server mode
 	f, err := utils.InitLogging()
 	if err != nil {
 		panic(err)
@@ -37,10 +40,25 @@ func main() {
 	r.GET("/error", func(c *gin.Context) {
 		c.JSON(500, gin.H{"message": "error"})
 	})
+
 	// 注册路由
 	routes.RegisterAccountMapRoutes(r)
 	routes.RegisteImportRoutes(r)
 	routes.RegisterBeangoConfig(r)
+
+	// Serve static files for the frontend and handle SPA fallback
+	r.NoRoute(func(c *gin.Context) {
+		requestedPath := c.Request.URL.Path
+		// Check if the requested path corresponds to a static file in web/dist
+		filepath := path.Join("web/dist", requestedPath)
+		if _, err := os.Stat(filepath); err == nil {
+			c.File(filepath)
+			return
+		}
+		// If not a static file, serve index.html for SPA fallback
+		c.File("web/dist/index.html")
+	})
+
 	if err := r.Run(":10777"); err != nil {
 		panic(err)
 	}
