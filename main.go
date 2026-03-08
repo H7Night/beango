@@ -14,11 +14,11 @@ import (
 
 func main() {
 	// Web server mode
-	f, err := utils.InitLogging()
+	err := utils.InitLogging()
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer utils.CloseLogging()
 
 	model.ConnectDatabase()
 	gin.SetMode(gin.DebugMode)

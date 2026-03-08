@@ -2,6 +2,7 @@ package service
 
 import (
 	"beango/model"
+	"beango/utils"
 	"fmt"
 	"log"
 	"strconv"
@@ -20,6 +21,7 @@ func TransWechat(records [][]string) ([]string, [5]int, error) {
 		record, skip := parseWechatRow(row)
 		if skip {
 			count[4]++
+			utils.LogConvert("skip", row)
 			continue
 		}
 
@@ -182,18 +184,22 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
+		utils.LogConvert("success", record)
 	case "收入":
 		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+		utils.LogConvert("success", record)
 	case "转账":
 		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
+		utils.LogConvert("success", record)
 	default:
 		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
+		utils.LogConvert("undefined", record)
 	}
 
 	return entryBuilder.String()

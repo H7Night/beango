@@ -9,18 +9,19 @@ import (
 )
 
 var LogFile *os.File
+var ConvertLogFile *os.File
 
 var Writer io.Writer = os.Stdout
 
-func InitLogging() (*os.File, error) {
+func InitLogging() error {
 	// 确保日志目录存在
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		return nil, err
+	if err := os.MkdirAll("out", 0755); err != nil {
+		return err
 	}
 	// 打开日志文件，使用截断模式
-	f, err := os.OpenFile("logs/beango.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.OpenFile("out/beango.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	LogFile = f
@@ -33,7 +34,31 @@ func InitLogging() (*os.File, error) {
 	gin.DefaultWriter = Writer
 	gin.DefaultErrorWriter = Writer
 
-	log.Println("Log file initialized and truncated: logs/beango.log")
+	log.Println("Log file initialized and truncated: out/beango.log")
 
-	return f, nil
+	// 初始化转换日志
+	cf, err := os.OpenFile("out/convert.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	ConvertLogFile = cf
+
+	return nil
+}
+
+func CloseLogging() {
+	if LogFile != nil {
+		LogFile.Close()
+	}
+	if ConvertLogFile != nil {
+		ConvertLogFile.Close()
+	}
+}
+
+func LogConvert(status string, record interface{}) {
+	if ConvertLogFile == nil {
+		return
+	}
+	logger := log.New(ConvertLogFile, "", log.LstdFlags)
+	logger.Printf("[%s] %v\n", status, record)
 }

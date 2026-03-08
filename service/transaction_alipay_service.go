@@ -2,6 +2,7 @@ package service
 
 import (
 	"beango/model"
+	"beango/utils"
 	"errors"
 	"fmt"
 	"log"
@@ -45,7 +46,7 @@ outerLoop:
 				if strings.Contains(commodity, keyword) {
 					if mapType == "skip" {
 						count[4]++
-						fmt.Println(row)   // 输出跳过的记录
+						utils.LogConvert("skip", row)
 						continue outerLoop //不记录该数据
 					}
 					transactionType = mapType
@@ -59,6 +60,7 @@ outerLoop:
 		}
 		// 交易状态
 		if transactionStatus == "交易关闭" || transactionStatus == "退款成功" {
+			utils.LogConvert("skip", row)
 			continue
 		}
 		// 支付方式分离，如果有&，选&前面的
@@ -173,18 +175,22 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
+		utils.LogConvert("success", record)
 	case "收入":
 		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+		utils.LogConvert("success", record)
 	case "转账":
 		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
+		utils.LogConvert("success", record)
 	default: // 无法解析的数据
 		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
+		utils.LogConvert("undefined", record)
 	}
 	return entryBuilder.String()
 }
