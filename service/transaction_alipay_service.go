@@ -40,7 +40,8 @@ outerLoop:
 		commodityMap, _ := model.LoadCommodityMap("config/commodity_map.yml")
 
 		if transactionType == "不计收支" {
-			// 检查 commodity 中包含的关键词
+			// 默认视为转账，除非匹配到 skip
+			transactionType = "转账"
 			matched := false
 			for keyword, mapType := range commodityMap {
 				if strings.Contains(commodity, keyword) {
@@ -54,8 +55,16 @@ outerLoop:
 					break
 				}
 			}
+			// 如果 commodity 没匹配到，检查 transactionCat 或 commodity 里的关键词
 			if !matched {
-				transactionType = "/" // 保持为未知类型
+				if strings.Contains(transactionCat, "转入") || strings.Contains(transactionCat, "转出") || 
+				   strings.Contains(transactionCat, "理财") || strings.Contains(transactionCat, "还款") ||
+				   strings.Contains(commodity, "转入") || strings.Contains(commodity, "转出") ||
+				   strings.Contains(commodity, "还款") {
+					transactionType = "转账"
+				} else {
+					transactionType = "undefined"
+				}
 			}
 		}
 		// 交易状态
@@ -105,10 +114,19 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 	fromAccount := "Assets:Other"
 	toAccount := "Assets:Other"
 
-	// 可匹配的字段组合(交易对方+商品信息+付款方式+备注)
-	combinedText := record.Counterparty + record.Commodity + record.PaymentMethod + record.Notes
+	// 1. 匹配支付方式 (通常是支出/收入的资金来源/去向，或者是转账的资金来源)
 	for _, mapping := range accountMap {
-		if strings.Contains(combinedText, mapping.Keyword) {
+		if mapping.Type == "asset" && strings.Contains(record.PaymentMethod, mapping.Keyword) {
+			assetAccount = mapping.Account
+			fromAccount = mapping.Account
+			break
+		}
+	}
+
+	// 2. 匹配交易对方和商品信息 (用于识别支出分类，或转账的目标账户)
+	combinedDest := record.Counterparty + record.Commodity + record.Notes
+	for _, mapping := range accountMap {
+		if strings.Contains(combinedDest, mapping.Keyword) {
 			switch mapping.Type {
 			case "expense":
 				if expenseAccount == "Expenses:Other" {
@@ -119,41 +137,49 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 					incomeAccount = mapping.Account
 				}
 			case "asset":
-				if assetAccount == "Assets:Other" {
-					assetAccount = mapping.Account
+				if toAccount == "Assets:Other" {
+					toAccount = mapping.Account
 				}
 			}
 		}
 	}
-	if record.TransactionType == "不计收支" {
-		for _, mapping := range accountMap {
-			if mapping.Type != "asset" {
-				continue
-			}
 
-			if fromAccount == "Assets:Other" && record.TransactionCat == "单次转出" &&
-				strings.Contains(mapping.Keyword, "余额") {
-				fromAccount = mapping.Account
-				log.Println(fromAccount, mapping.Account)
-				continue
+	// 3. 特殊处理：如果识别为转账，且 from/to 还是默认值，尝试根据交易分类进一步识别
+	if record.TransactionType == "转账" {
+		isRepayment := strings.Contains(record.TransactionCat, "还款") || strings.Contains(record.Commodity, "还款")
+		
+		if isRepayment {
+			// 还款情况：资金来源 (from) 是支付方式，目标 (to) 是还款对象（如花呗）
+			// fromAccount 已经在第一步通过 paymentMethod 匹配到了
+			// toAccount 需要从 commodity 或 counterparty 匹配
+			if toAccount == "Assets:Other" {
+				for _, mapping := range accountMap {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+						toAccount = mapping.Account
+						break
+					}
+				}
 			}
-			if toAccount == "Assets:Other" && record.TransactionCat == "单次转入" &&
-				strings.Contains(mapping.Keyword, "余额") {
-				toAccount = mapping.Account
-				log.Println(toAccount, mapping.Account)
-				continue
+		} else if strings.Contains(record.TransactionCat, "转入") || strings.Contains(record.Commodity, "转入") {
+			// 这种情况下，paymentMethod 通常是外部账户 (from)，商品信息里包含的是内部账户 (to)
+			// 如果 toAccount 还没匹配到，再次尝试从 commodity 匹配 "余额宝" 等
+			if toAccount == "Assets:Other" {
+				for _, mapping := range accountMap {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+						toAccount = mapping.Account
+						break
+					}
+				}
 			}
-
-			// 匹配 Counterparty（模糊匹配）
-			if record.TransactionCat == "单次转出" && toAccount == "Assets:Other" &&
-				strings.Contains(record.Counterparty, mapping.Keyword) {
-				log.Println(toAccount)
-				toAccount = mapping.Account
-			}
-			if record.TransactionCat == "单次转入" && fromAccount == "Assets:Other" &&
-				strings.Contains(record.Counterparty, mapping.Keyword) {
-				log.Println(fromAccount)
-				fromAccount = mapping.Account
+		} else if strings.Contains(record.TransactionCat, "转出") || strings.Contains(record.Commodity, "转出") {
+			// 这种情况下，paymentMethod 通常是内部账户 (from)，商品信息里包含的是外部账户 (to)
+			if fromAccount == "Assets:Other" {
+				for _, mapping := range accountMap {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+						fromAccount = mapping.Account
+						break
+					}
+				}
 			}
 		}
 	}
