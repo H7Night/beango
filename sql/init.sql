@@ -11,6 +11,9 @@ INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VA
 INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(12, '招商银行储蓄卡(3229)', 'Assets:CMB:3229', 'asset', '2025-04-26 13:22:02', '2025-04-26 13:22:09');
 INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(13, '转账备注', 'Income:RedEnvelope', 'income', '2025-04-26 13:22:02', '2025-04-26 13:22:09');
 INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(14, '广发银行储蓄卡(1508)', 'Assets:CGB:41508', 'asset', '2025-04-26 13:22:02', '2025-04-26 13:22:09');
+INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(15, '蚂蚁财富', 'Assets:Alipay:Funds', 'asset', '2026-04-08 10:00:00', '2026-04-08 10:00:00');
+INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(16, '信用卡还款', 'Liabilities:CMBCreditCard:2035', 'asset', '2026-04-08 10:00:00', '2026-04-08 10:00:00');
+INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VALUES(17, '花呗主动还款', 'Liabilities:Huabei', 'asset', '2026-04-08 10:00:00', '2026-04-08 10:00:00');
 
 
 

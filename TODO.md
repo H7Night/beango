@@ -5,5 +5,5 @@
 ## ISSUE
 [x] 交通票处理
 [x] 页面管理account_map
-[] merge时空行过多问题
+[x] merge时空行过多问题
 [] 读取beancout中asset

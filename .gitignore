@@ -7,5 +7,7 @@ tmp
 .vscode
 beancount
 out
+output
+logs
 beango-web/node_modules
 beango-web/.vscode

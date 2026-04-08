@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -123,10 +124,17 @@ func writeGroupedEntries(grouped map[string][]string, baseDir, subFolder string,
 
 		var builder strings.Builder
 		for _, e := range allEntries {
-			builder.WriteString(e)
-			builder.WriteString("\n\n")
+			trimmed := strings.TrimSpace(e)
+			if trimmed != "" {
+				builder.WriteString(trimmed)
+				builder.WriteString("\n\n")
+			}
 		}
-		if _, err := f.WriteString(builder.String()); err != nil {
+
+		// 整个文本处理：确保每条记录之间只有一个空行
+		content := extraNewlines.ReplaceAllString(builder.String(), "\n\n")
+
+		if _, err := f.WriteString(content); err != nil {
 			f.Close()
 			return fmt.Errorf("failed to write entries: %w", err)
 		}
@@ -150,12 +158,18 @@ func getEntryTime(entry string) (time.Time, error) {
 	return time.Time{}, errors.New("no time found")
 }
 
+var (
+	entrySplitter = regexp.MustCompile(`\n\n+`)
+	extraNewlines = regexp.MustCompile(`\n{3,}`)
+)
+
 func parseBeanFile(filePath string) ([]string, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	entries := strings.Split(string(content), "\n\n")
+	s := strings.ReplaceAll(string(content), "\r\n", "\n")
+	entries := entrySplitter.Split(s, -1)
 	var res []string
 	for _, e := range entries {
 		e = strings.TrimSpace(e)
