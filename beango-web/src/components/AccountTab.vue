@@ -84,11 +84,11 @@ const form = ref({
 });
 
 const headers: any[] = [
-    { title: '序号', key: 'index', align: 'end', sortable: false },
-    { title: 'Keyword', key: 'keyword', align: 'end' },
-    { title: 'Account', key: 'account', align: 'end' },
-    { title: 'Type', key: 'type', align: 'end' },
-    { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
+    { title: '序号', key: 'index', align: 'start', sortable: false },
+    { title: 'Keyword', key: 'keyword', align: 'start' },
+    { title: 'Account', key: 'account', align: 'start' },
+    { title: 'Type', key: 'type', align: 'start' },
+    { title: 'Actions', key: 'actions', sortable: false, align: 'start' }
 ];
 
 const loadData = async () => {
