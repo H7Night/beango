@@ -59,7 +59,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 		paymentMethod = "零钱"
 	}
 
-	// 跳过退款类交易
+	// 只有全额退款才跳过
 	if transactionStatus == "已全额退款" || transactionStatus == "对方已退还" {
 		log.Printf("不合规数据: %s", row)
 		return model.BeancountTransaction{}, true
@@ -109,8 +109,28 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	fromAccount := "Assets:Other"
 	toAccount := "Assets:Other"
 
+	// 优先匹配交易对方 (更精确的 Counterparty 优先于商品/分类关键词)
+	for _, mapping := range accountMap {
+		if (strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) || strings.Contains(mapping.Keyword, record.Counterparty) {
+			switch mapping.Type {
+			case "expense":
+				if expenseAccount == "Expenses:Other" {
+					expenseAccount = mapping.Account
+				}
+			case "income":
+				if incomeAccount == "Income:Other" {
+					incomeAccount = mapping.Account
+				}
+			case "asset":
+				if assetAccount == "Assets:Other" {
+					assetAccount = mapping.Account
+				}
+			}
+		}
+	}
+
 	// 可匹配的字段组合
-	combinedText := record.Counterparty + record.Commodity + record.TransactionStatus + record.PaymentMethod + record.Notes
+	combinedText := record.Counterparty + record.Commodity + record.TransactionStatus + record.PaymentMethod + record.Notes + record.TransactionCat
 	for _, mapping := range accountMap {
 		if strings.Contains(combinedText, mapping.Keyword) {
 			switch mapping.Type {
@@ -147,7 +167,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 			}
 
 			// 匹配 Counterparty 关键词
-			if strings.Contains(record.Counterparty, mapping.Keyword) {
+			if (strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) || strings.Contains(mapping.Keyword, record.Counterparty) {
 				if record.TransactionCat == "零钱提现" {
 					toAccount = mapping.Account
 				} else if record.TransactionCat == "零钱充值" {
@@ -187,13 +207,13 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		utils.LogConvert("success", record)
 	case "收入":
 		count[1]++
-		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		utils.LogConvert("success", record)
 	case "转账":
 		count[2]++
-		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		utils.LogConvert("success", record)
 	default:
 		count[3]++

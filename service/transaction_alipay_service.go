@@ -57,10 +57,10 @@ outerLoop:
 			}
 			// 如果 commodity 没匹配到，检查 transactionCat 或 commodity 里的关键词
 			if !matched {
-				if strings.Contains(transactionCat, "转入") || strings.Contains(transactionCat, "转出") || 
+				if strings.Contains(transactionCat, "转入") || strings.Contains(transactionCat, "转出") ||
 				   strings.Contains(transactionCat, "理财") || strings.Contains(transactionCat, "还款") ||
 				   strings.Contains(commodity, "转入") || strings.Contains(commodity, "转出") ||
-				   strings.Contains(commodity, "还款") {
+				   strings.Contains(commodity, "还款") || strings.Contains(commodity, "买入") {
 					transactionType = "转账"
 				} else {
 					transactionType = "undefined"
@@ -68,7 +68,7 @@ outerLoop:
 			}
 		}
 		// 交易状态
-		if transactionStatus == "交易关闭" || transactionStatus == "退款成功" {
+		if transactionStatus == "交易关闭" || (strings.Contains(transactionStatus, "退款") && !strings.Contains(transactionStatus, "(")) {
 			utils.LogConvert("skip", row)
 			continue
 		}
@@ -123,8 +123,28 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		}
 	}
 
-	// 2. 匹配交易对方和商品信息 (用于识别支出分类，或转账的目标账户)
-	combinedDest := record.Counterparty + record.Commodity + record.Notes
+	// 2. 优先匹配交易对方 (更精确的 Counterparty 优先于商品/分类关键词)
+	for _, mapping := range accountMap {
+		if strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty) {
+			switch mapping.Type {
+			case "expense":
+				if expenseAccount == "Expenses:Other" {
+					expenseAccount = mapping.Account
+				}
+			case "income":
+				if incomeAccount == "Income:Other" {
+					incomeAccount = mapping.Account
+				}
+			case "asset":
+				if toAccount == "Assets:Other" {
+					toAccount = mapping.Account
+				}
+			}
+		}
+	}
+
+	// 3. 匹配商品信息 + 交易分类 (用于识别支出分类，或转账的目标账户)
+	combinedDest := record.Counterparty + record.Commodity + record.Notes + record.TransactionCat
 	for _, mapping := range accountMap {
 		if strings.Contains(combinedDest, mapping.Keyword) {
 			switch mapping.Type {
@@ -144,17 +164,17 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		}
 	}
 
-	// 3. 特殊处理：如果识别为转账，且 from/to 还是默认值，尝试根据交易分类进一步识别
+	// 4. 特殊处理：如果识别为转账，且 from/to 还是默认值，尝试根据交易分类进一步识别
 	if record.TransactionType == "转账" {
 		isRepayment := strings.Contains(record.TransactionCat, "还款") || strings.Contains(record.Commodity, "还款")
-		
+
 		if isRepayment {
 			// 还款情况：资金来源 (from) 是支付方式，目标 (to) 是还款对象（如花呗）
 			// fromAccount 已经在第一步通过 paymentMethod 匹配到了
 			// toAccount 需要从 commodity 或 counterparty 匹配
 			if toAccount == "Assets:Other" {
 				for _, mapping := range accountMap {
-					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						toAccount = mapping.Account
 						break
 					}
@@ -165,7 +185,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 			// 如果 toAccount 还没匹配到，再次尝试从 commodity 匹配 "余额宝" 等
 			if toAccount == "Assets:Other" {
 				for _, mapping := range accountMap {
-					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						toAccount = mapping.Account
 						break
 					}
@@ -175,7 +195,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 			// 这种情况下，paymentMethod 通常是内部账户 (from)，商品信息里包含的是外部账户 (to)
 			if fromAccount == "Assets:Other" {
 				for _, mapping := range accountMap {
-					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword)) {
+					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						fromAccount = mapping.Account
 						break
 					}
@@ -204,13 +224,13 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		utils.LogConvert("success", record)
 	case "收入":
 		count[1]++
-		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		utils.LogConvert("success", record)
 	case "转账":
 		count[2]++
-		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
+		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		utils.LogConvert("success", record)
 	default: // 无法解析的数据
 		count[3]++
