@@ -2,12 +2,9 @@ version: '3.8'
 
 services:
   beango:
-    image: beango-local # The name of the image we built
+    image: beango-local
     ports:
-      - "10777:10777" # Map container port 10777 to host port 10777
+      - "10777:10777"
     volumes:
-      - ./out:/app/out # Map the local 'out' directory to the container's '/app/out'
-      - ./data:/app/data # Map the local 'data' directory for SQLite database persistence
-    # entrypoint: ["/app/beango"] # Explicitly set entrypoint, though Dockerfile already has it
-    # environment:
-    #   - GIN_MODE=release # Optional: run Gin in release mode
+      - ./out:/app/out
+      - ./config:/app/config
