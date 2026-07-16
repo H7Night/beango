@@ -39,6 +39,10 @@ account_maps:
   "转账备注":
     account: "Income:RedEnvelope"
     type: "income"
+  # -- 退款
+  "退款":
+    account: "Income:Rebate"
+    type: "income"
   "广发银行储蓄卡(1508)":
     account: "Assets:CGB:41508"
     type: "asset"
@@ -54,7 +58,69 @@ account_maps:
   "余额":
     account: "Assets:AliPay:Balance"
     type: "asset"
-  # 支付宝交易分类 → Beancount 支出账户
+  # ====== 商户关键词 → 精细账户（优先于分类兜底） ======
+  # -- 餐饮：早餐
+  "中华包点":
+    account: "Expenses:Food:Breakfast"
+    type: "expense"
+  # -- 餐饮：午餐
+  "芬记美食":
+    account: "Expenses:Food:Lunch"
+    type: "expense"
+  # -- 餐饮：晚餐
+  "全天靓粥":
+    account: "Expenses:Food:Dinner"
+    type: "expense"
+  # -- 餐饮：零食/饮品
+  "柠檬树小食店":
+    account: "Expenses:Food:Snack"
+    type: "expense"
+  "零食有鸣":
+    account: "Expenses:Food:Snack"
+    type: "expense"
+  "雨东烘焙":
+    account: "Expenses:Food:Snack"
+    type: "expense"
+  "瑞幸":
+    account: "Expenses:Food:Snack"
+    type: "expense"
+  "蜜雪冰城":
+    account: "Expenses:Food:Snack"
+    type: "expense"
+  # -- 购物：游戏
+  "Steam":
+    account: "Expenses:Shopping:Game"
+    type: "expense"
+  # -- 购物：模玩
+  "THE GUNDAM BASE":
+    account: "Expenses:Shopping:Toy"
+    type: "expense"
+  "万代南梦宫":
+    account: "Expenses:Shopping:Toy"
+    type: "expense"
+  "宅物仓":
+    account: "Expenses:Shopping:Toy"
+    type: "expense"
+  "蛋蛋蛋":
+    account: "Expenses:Shopping:Toy"
+    type: "expense"
+  # -- 购物：健身补剂
+  "on舰":
+    account: "Expenses:Shopping:Makeup"
+    type: "expense"
+  # -- 交通：共享单车
+  "哈啰":
+    account: "Expenses:Transport:Bike"
+    type: "expense"
+  # -- 交通：长途巴士
+  "购票支付":
+    account: "Expenses:Transport:Bus"
+    type: "expense"
+  # -- 生活：快递
+  "中通":
+    account: "Expenses:Home:Delivery"
+    type: "expense"
+  # ====== 支付宝交易分类 → Beancount 支出账户（兜底） ======
   "餐饮美食":
     account: "Expenses:Food:Other"
     type: "expense"
