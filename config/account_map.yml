@@ -1,0 +1,103 @@
+# Beango Account Map Configuration
+# keyword → {account, type} 映射表
+# type: asset(资产/负债) | expense(支出) | income(收入)
+
+account_maps:
+  "招商银行信用卡(2035)":
+    account: "Liabilities:CMBCreditCard:2035"
+    type: "asset"
+  "花呗":
+    account: "Liabilities:Huabei"
+    type: "asset"
+  "余额宝":
+    account: "Assets:AliPay:Balance"
+    type: "asset"
+  "Yu'E Bao":
+    account: "Assets:AliPay:Balance"
+    type: "asset"
+  "地铁":
+    account: "Expenses:Transport"
+    type: "expense"
+  "中运交通":
+    account: "Expenses:Transport"
+    type: "expense"
+  "基金管理":
+    account: "Income:Fund"
+    type: "income"
+  "光大银行":
+    account: "Assets:CEB:1027"
+    type: "asset"
+  "招商银行(3229)":
+    account: "Assets:CMB:3229"
+    type: "asset"
+  "零钱":
+    account: "Assets:WeChat"
+    type: "asset"
+  "招商银行储蓄卡(3229)":
+    account: "Assets:CMB:3229"
+    type: "asset"
+  "转账备注":
+    account: "Income:RedEnvelope"
+    type: "income"
+  "广发银行储蓄卡(1508)":
+    account: "Assets:CGB:41508"
+    type: "asset"
+  "蚂蚁财富":
+    account: "Assets:Alipay:Funds"
+    type: "asset"
+  "信用卡还款":
+    account: "Liabilities:CMBCreditCard:2035"
+    type: "asset"
+  "花呗主动还款":
+    account: "Liabilities:Huabei"
+    type: "asset"
+  "余额":
+    account: "Assets:AliPay:Balance"
+    type: "asset"
+  # 支付宝交易分类 → Beancount 支出账户
+  "餐饮美食":
+    account: "Expenses:Food:Other"
+    type: "expense"
+  "日用百货":
+    account: "Expenses:Shopping:Home"
+    type: "expense"
+  "交通出行":
+    account: "Expenses:Transport"
+    type: "expense"
+  "家居家装":
+    account: "Expenses:Shopping:Home"
+    type: "expense"
+  "文化休闲":
+    account: "Expenses:Entertainment:Other"
+    type: "expense"
+  "服饰美容":
+    account: "Expenses:Shopping:Clothing"
+    type: "expense"
+  "数码电器":
+    account: "Expenses:Shopping:Digital"
+    type: "expense"
+  "生活服务":
+    account: "Expenses:Home:Other"
+    type: "expense"
+  "运动健身":
+    account: "Expenses:Health:Other"
+    type: "expense"
+  "医疗健康":
+    account: "Expenses:Health:Medical"
+    type: "expense"
+  # 微信交易分类 → Beancount 支出账户
+  "餐饮":
+    account: "Expenses:Food:Other"
+    type: "expense"
+  "购物":
+    account: "Expenses:Shopping:Other"
+    type: "expense"
+  "出行":
+    account: "Expenses:Transport"
+    type: "expense"
+  "生活":
+    account: "Expenses:Home:Other"
+    type: "expense"
+  "娱乐":
+    account: "Expenses:Entertainment:Other"
+    type: "expense"

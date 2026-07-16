@@ -1,143 +1,173 @@
 package model
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
-	"time"
 )
 
-var mappings []AccountMap
+const accountMapPath = "config/account_map.yml"
 
+// accountMapFile mirrors the YAML file structure
+type accountMapFile struct {
+	AccountMaps map[string]AccountMapEntry `yaml:"account_maps"`
+}
+
+// AccountMapEntry is the YAML-stored value for each keyword
+type AccountMapEntry struct {
+	Account string `yaml:"account"`
+	Type    string `yaml:"type"`
+}
+
+// AccountMap is the API-facing struct (converted from map on read)
 type AccountMap struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement" json:"ID"`
-	Keyword   string    `gorm:"type:varchar(64);index" json:"keyword"`
-	Account   string    `gorm:"type:varchar(128)" json:"account"`
-	Type      string    `gorm:"type:varchar(32)" json:"type"`
-	CreatedAt time.Time `gorm:"type:timestamp;autoCreateTime;default:CURRENT_TIMESTAMP" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"type:timestamp;autoUpdateTime" json:"updated_at"`
+	Keyword string `json:"keyword"`
+	Account string `json:"account"`
+	Type    string `json:"type"`
 }
 
-// MarshalJSON 自定义 JSON 序列化
-func (a AccountMap) MarshalJSON() ([]byte, error) {
-	type Alias AccountMap // 创建别名避免递归调用
-	
-	return json.Marshal(&struct {
-		*Alias
-		CreatedAt string `json:"createdAt"`
-		UpdatedAt string `json:"updated_at"`
-	}{
-		Alias:     (*Alias)(&a),
-		CreatedAt: formatTime(a.CreatedAt),
-		UpdatedAt: formatTime(a.UpdatedAt),
-	})
-}
+var accountMapsCache []AccountMap
+var accountMapsLoaded bool
 
-// UnmarshalJSON 自定义 JSON 反序列化（如果需要从 JSON 创建对象）
-func (a *AccountMap) UnmarshalJSON(data []byte) error {
-	type Alias AccountMap
-	aux := &struct {
-		*Alias
-		CreatedAt string `json:"createdAt"`
-		UpdatedAt string `json:"updated_at"`
-	}{
-		Alias: (*Alias)(a),
+// loadAccountMapFile reads the YAML file
+func loadAccountMapFile() (*accountMapFile, error) {
+	var af accountMapFile
+	if err := readYAML(accountMapPath, &af); err != nil {
+		return nil, fmt.Errorf("读取账户映射配置失败: %w", err)
 	}
-	
-	if err := json.Unmarshal(data, aux); err != nil {
+	if af.AccountMaps == nil {
+		af.AccountMaps = make(map[string]AccountMapEntry)
+	}
+	return &af, nil
+}
+
+// saveAccountMapFile writes the YAML file
+func saveAccountMapFile(af *accountMapFile) error {
+	return writeYAML(accountMapPath, af)
+}
+
+// mapToSlice converts the map to a sorted slice for cache/API
+func mapToSlice(m map[string]AccountMapEntry) []AccountMap {
+	result := make([]AccountMap, 0, len(m))
+	for keyword, entry := range m {
+		result = append(result, AccountMap{
+			Keyword: keyword,
+			Account: entry.Account,
+			Type:    entry.Type,
+		})
+	}
+	return result
+}
+
+// LoadAccountMap 加载账户映射到缓存
+func LoadAccountMap() error {
+	af, err := loadAccountMapFile()
+	if err != nil {
+		log.Printf("无法加载账户映射: %v", err)
 		return err
 	}
-	
-	// 解析时间字符串
-	var err error
-	if aux.CreatedAt != "" {
-		a.CreatedAt, err = parseTime(aux.CreatedAt)
-		if err != nil {
-			return err
-		}
-	}
-	if aux.UpdatedAt != "" {
-		a.UpdatedAt, err = parseTime(aux.UpdatedAt)
-		if err != nil {
-			return err
-		}
-	}
-	
+	accountMapsCache = mapToSlice(af.AccountMaps)
+	accountMapsLoaded = true
 	return nil
 }
 
-// formatTime 格式化时间
-func formatTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format("2006-01-02 15:04:05")
-}
-
-// parseTime 解析时间字符串
-func parseTime(str string) (time.Time, error) {
-	if str == "" {
-		return time.Time{}, nil
-	}
-	return time.Parse("2006-01-02 15:04:05", str)
-}
-
-// LoadAccountMapFromDB 加载数据库映射库
+// LoadAccountMapFromDB 保留旧函数名以兼容现有调用
 func LoadAccountMapFromDB() error {
-	err := db.Find(&mappings).Error
-	if err != nil {
-		log.Printf("无法加载账户映射: %v", err)
-	}
-	return err
+	return LoadAccountMap()
 }
 
 func GetAccountMap() []AccountMap {
-	return mappings
+	if !accountMapsLoaded {
+		_ = LoadAccountMap()
+	}
+	return accountMapsCache
 }
 
 // CreateAccountMap 创建账户映射
-func CreateAccountMap(accountMap AccountMap) error {
-	err := db.Create(&accountMap).Error
-	if err == nil {
-		// 创建成功后重新加载缓存
-		LoadAccountMapFromDB()
+func CreateAccountMap(am AccountMap) error {
+	af, err := loadAccountMapFile()
+	if err != nil {
+		return err
 	}
-	return err
+
+	if _, exists := af.AccountMaps[am.Keyword]; exists {
+		return fmt.Errorf("关键词 '%s' 已存在", am.Keyword)
+	}
+
+	af.AccountMaps[am.Keyword] = AccountMapEntry{
+		Account: am.Account,
+		Type:    am.Type,
+	}
+
+	if err := saveAccountMapFile(af); err != nil {
+		return err
+	}
+
+	accountMapsCache = mapToSlice(af.AccountMaps)
+	return nil
 }
 
-// UpdateAccountMap 更新账户映射
-func UpdateAccountMap(id uint64, mapp AccountMap) error {
-	err := db.Model(&AccountMap{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"keyword": mapp.Keyword,
-		"account": mapp.Account,
-		"type":    mapp.Type,
-	}).Error
-	if err == nil {
-		// 更新成功后重新加载缓存
-		LoadAccountMapFromDB()
+// UpdateAccountMap 更新账户映射（通过 keyword 定位）
+func UpdateAccountMap(keyword string, am AccountMap) error {
+	af, err := loadAccountMapFile()
+	if err != nil {
+		return err
 	}
-	return err
+
+	if _, exists := af.AccountMaps[keyword]; !exists {
+		return fmt.Errorf("关键词 '%s' 不存在", keyword)
+	}
+
+	// 如果 keyword 有变化，删除旧 key，写入新 key
+	if keyword != am.Keyword {
+		delete(af.AccountMaps, keyword)
+	}
+
+	af.AccountMaps[am.Keyword] = AccountMapEntry{
+		Account: am.Account,
+		Type:    am.Type,
+	}
+
+	if err := saveAccountMapFile(af); err != nil {
+		return err
+	}
+
+	accountMapsCache = mapToSlice(af.AccountMaps)
+	return nil
 }
 
 // DeleteAccountMap 删除账户映射
-func DeleteAccountMap(id uint64) error {
-	err := db.Where("id = ?", id).Delete(&AccountMap{}).Error
-	if err == nil {
-		// 删除成功后重新加载缓存
-		LoadAccountMapFromDB()
+func DeleteAccountMap(keyword string) error {
+	af, err := loadAccountMapFile()
+	if err != nil {
+		return err
 	}
-	return err
+
+	if _, exists := af.AccountMaps[keyword]; !exists {
+		return fmt.Errorf("关键词 '%s' 不存在", keyword)
+	}
+
+	delete(af.AccountMaps, keyword)
+
+	if err := saveAccountMapFile(af); err != nil {
+		return err
+	}
+
+	accountMapsCache = mapToSlice(af.AccountMaps)
+	return nil
 }
 
 // GetAllAccountMap 获取所有账户映射
 func GetAllAccountMap() ([]AccountMap, error) {
-	var mappings []AccountMap
-	err := db.Find(&mappings).Error
-	return mappings, err
+	af, err := loadAccountMapFile()
+	if err != nil {
+		return nil, err
+	}
+	return mapToSlice(af.AccountMaps), nil
 }
 
 // GetAccountByKeyword 根据关键词查找账户（缓存查询）
 func GetAccountByKeyword(keyword string) (AccountMap, bool) {
-	for _, mapping := range mappings {
+	for _, mapping := range GetAccountMap() {
 		if mapping.Keyword == keyword {
 			return mapping, true
 		}
@@ -147,5 +177,5 @@ func GetAccountByKeyword(keyword string) (AccountMap, bool) {
 
 // RefreshAccountMapCache 刷新缓存
 func RefreshAccountMapCache() error {
-	return LoadAccountMapFromDB()
+	return LoadAccountMap()
 }

@@ -11,3 +11,6 @@ output
 logs
 beango-web/node_modules
 beango-web/.vscode
+beango.exe
+bin/
+data/

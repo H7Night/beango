@@ -1,0 +1,5 @@
+# Beango Configuration
+beango:
+  outputFolder: "./out"
+  defaultFolder: "0-default"
+  securitFolder: "1-securities"

@@ -1,46 +1,67 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
-
-	"gorm.io/gorm"
 )
 
+const beangoConfigPath = "config/beango.yml"
+
+// beangoConfigFile mirrors the YAML file structure
+type beangoConfigFile struct {
+	Beango map[string]string `yaml:"beango"`
+}
+
 type BeangoConfig struct {
-	ID          uint64    `gorm:"primary_key;auto_increment" json:"id"`
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-	ConfigKey   string    `gorm:"type:varchar(255)" json:"config_key"`
-	ConfigValue string    `gorm:"type:varchar(255)" json:"config_value"`
-	Note        string    `gorm:"type:varchar(255)" json:"note"`
+	ID          uint64    `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	ConfigKey   string    `json:"config_key"`
+	ConfigValue string    `json:"config_value"`
+	Note        string    `json:"note"`
+}
+
+// loadBeangoConfig reads the beango.yml file
+func loadBeangoConfig() (*beangoConfigFile, error) {
+	var bcf beangoConfigFile
+	if err := readYAML(beangoConfigPath, &bcf); err != nil {
+		return nil, fmt.Errorf("读取配置失败: %w", err)
+	}
+	if bcf.Beango == nil {
+		bcf.Beango = make(map[string]string)
+	}
+	return &bcf, nil
+}
+
+// saveBeangoConfig writes to beango.yml
+func saveBeangoConfig(bcf *beangoConfigFile) error {
+	return writeYAML(beangoConfigPath, bcf)
 }
 
 func GetBeangoConfigValue(key string) (string, error) {
-	var beangoConfig BeangoConfig
-	err := db.Where("config_key = ?", key).First(&beangoConfig).Error
+	bcf, err := loadBeangoConfig()
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil
-		}
 		return "", err
 	}
-	return beangoConfig.ConfigValue, nil
+	val, ok := bcf.Beango[key]
+	if !ok {
+		return "", nil
+	}
+	return val, nil
 }
 
 func GetConfigString(key, defaultVal string) string {
-	var cfg BeangoConfig
-	err := db.Where("config_key = ?", key).First(&cfg).Error
+	bcf, err := loadBeangoConfig()
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return defaultVal
-		}
 		fmt.Printf("读取配置失败 key=%s: %v\n", key, err)
 		return defaultVal
 	}
-	return cfg.ConfigValue
+	val, ok := bcf.Beango[key]
+	if !ok || val == "" {
+		return defaultVal
+	}
+	return val
 }
 
 func GetConfigBool(key string, defaultVal bool) bool {
@@ -69,22 +90,84 @@ func GetConfigInt(key string, defaultVal int) int {
 	return res
 }
 
+// GetAllBeangoConfig 获取所有配置（转为 BeangoConfig 列表以兼容 Web API）
 func GetAllBeangoConfig() ([]BeangoConfig, error) {
-	var beangoConfigs []BeangoConfig
-	err := db.Find(&beangoConfigs).Error
-	return beangoConfigs, err
+	bcf, err := loadBeangoConfig()
+	if err != nil {
+		return nil, err
+	}
+	var configs []BeangoConfig
+	id := uint64(1)
+	for k, v := range bcf.Beango {
+		configs = append(configs, BeangoConfig{
+			ID:          id,
+			ConfigKey:   k,
+			ConfigValue: v,
+		})
+		id++
+	}
+	return configs, nil
 }
 
+// CreateBeangoConfig 新增配置项
 func CreateBeangoConfig(config BeangoConfig) error {
-	return db.Create(&config).Error
+	bcf, err := loadBeangoConfig()
+	if err != nil {
+		return err
+	}
+	bcf.Beango[config.ConfigKey] = config.ConfigValue
+	return saveBeangoConfig(bcf)
 }
 
+// UpdateBeangoConfig 更新配置项
 func UpdateBeangoConfig(id uint64, config BeangoConfig) error {
-	return db.Model(&BeangoConfig{}).Where("id = ?", id).Updates(BeangoConfig{
-		ConfigKey:   config.ConfigKey,
-		ConfigValue: config.ConfigValue,
-	}).Error
+	bcf, err := loadBeangoConfig()
+	if err != nil {
+		return err
+	}
+	// 先找到旧 key（通过 id 对应的 key）
+	allConfigs, _ := getAllConfigsAsList(bcf)
+	var oldKey string
+	for _, c := range allConfigs {
+		if c.ID == id {
+			oldKey = c.ConfigKey
+			break
+		}
+	}
+	if oldKey != "" && oldKey != config.ConfigKey {
+		delete(bcf.Beango, oldKey)
+	}
+	bcf.Beango[config.ConfigKey] = config.ConfigValue
+	return saveBeangoConfig(bcf)
 }
+
+// DeleteBeangoConfig 删除配置项
 func DeleteBeangoConfig(id uint64) error {
-	return db.Model(&BeangoConfig{}).Where("id = ?", id).Delete(&BeangoConfig{}).Error
+	bcf, err := loadBeangoConfig()
+	if err != nil {
+		return err
+	}
+	allConfigs, _ := getAllConfigsAsList(bcf)
+	for _, c := range allConfigs {
+		if c.ID == id {
+			delete(bcf.Beango, c.ConfigKey)
+			return saveBeangoConfig(bcf)
+		}
+	}
+	return fmt.Errorf("config with id %d not found", id)
+}
+
+// getAllConfigsAsList helper: converts beangoConfigFile to []BeangoConfig with stable IDs
+func getAllConfigsAsList(bcf *beangoConfigFile) ([]BeangoConfig, error) {
+	var configs []BeangoConfig
+	id := uint64(1)
+	for k, v := range bcf.Beango {
+		configs = append(configs, BeangoConfig{
+			ID:          id,
+			ConfigKey:   k,
+			ConfigValue: v,
+		})
+		id++
+	}
+	return configs, nil
 }

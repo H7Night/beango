@@ -72,9 +72,8 @@ const accountMaps = ref<AccountMap[]>([]);
 const loading = ref(false);
 const dialog = ref(false);
 const isEditing = ref(false);
-const editingId = ref<number | null>(null);
+const editingKeyword = ref<string | null>(null);
 
-// 下拉框选项定义
 const typeOptions = ['asset', 'income', 'expense'];
 
 const form = ref({
@@ -104,14 +103,14 @@ const loadData = async () => {
 
 const openCreateDialog = () => {
     isEditing.value = false;
-    editingId.value = null;
-    form.value = { keyword: '', account: '', type: 'asset' }; // 默认选一个
+    editingKeyword.value = null;
+    form.value = { keyword: '', account: '', type: 'asset' };
     dialog.value = true;
 };
 
 const openEditDialog = (item: AccountMap) => {
     isEditing.value = true;
-    editingId.value = item.ID;
+    editingKeyword.value = item.keyword;
     form.value = { keyword: item.keyword, account: item.account, type: item.type };
     dialog.value = true;
 };
@@ -122,8 +121,8 @@ const closeDialog = () => {
 
 const saveItem = async () => {
     try {
-        if (isEditing.value && editingId.value) {
-            await updateAccountMap(editingId.value, form.value);
+        if (isEditing.value && editingKeyword.value) {
+            await updateAccountMap(editingKeyword.value, form.value);
         } else {
             await createAccountMap(form.value);
         }
@@ -137,7 +136,7 @@ const saveItem = async () => {
 const deleteItem = async (item: AccountMap) => {
     if (confirm('确认删除？')) {
         try {
-            await deleteAccountMap(item.ID);
+            await deleteAccountMap(item.keyword);
             await loadData();
         } catch (error) {
             console.error('Failed to delete:', error);

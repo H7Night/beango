@@ -3,12 +3,9 @@ import axios from 'axios';
 const API_BASE_URL = 'http://127.0.0.1:10777';
 
 export interface AccountMap {
-  ID: number;
   keyword: string;
   account: string;
   type: string;
-  createdAt: string;
-  updated_at: string;
 }
 
 export const uploadFile = async (file: File, type: 'alipay' | 'wechat') => {
@@ -31,17 +28,17 @@ export const getAllAccountMaps = async (): Promise<AccountMap[]> => {
   return response.data.data;
 };
 
-export const createAccountMap = async (accountMap: Omit<AccountMap, 'ID' | 'createdAt' | 'updated_at'>): Promise<AccountMap> => {
+export const createAccountMap = async (accountMap: AccountMap): Promise<AccountMap> => {
   const response = await axios.post(`${API_BASE_URL}/account_map/create`, accountMap);
   return response.data.data;
 };
 
-export const updateAccountMap = async (id: number, accountMap: Omit<AccountMap, 'ID' | 'createdAt' | 'updated_at'>): Promise<AccountMap> => {
-  const response = await axios.put(`${API_BASE_URL}/account_map/update/${id}`, accountMap);
+export const updateAccountMap = async (keyword: string, accountMap: AccountMap): Promise<AccountMap> => {
+  const response = await axios.put(`${API_BASE_URL}/account_map/update/${encodeURIComponent(keyword)}`, accountMap);
   return response.data.data;
 };
 
-export const deleteAccountMap = async (id: number): Promise<number> => {
-  const response = await axios.delete(`${API_BASE_URL}/account_map/delete/${id}`);
+export const deleteAccountMap = async (keyword: string): Promise<string> => {
+  const response = await axios.delete(`${API_BASE_URL}/account_map/delete/${encodeURIComponent(keyword)}`);
   return response.data.data;
 };

@@ -2,9 +2,9 @@ package routes
 
 import (
 	"beango/model"
-	"github.com/gin-gonic/gin"
 	"net/http"
-	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 func RegisterAccountMapRoutes(router *gin.Engine) {
@@ -15,6 +15,7 @@ func RegisterAccountMapRoutes(router *gin.Engine) {
 			c.JSON(http.StatusOK, gin.H{
 				"error": err,
 			})
+			return
 		}
 		c.JSON(http.StatusOK, gin.H{"data": maps})
 	})
@@ -34,17 +35,10 @@ func RegisterAccountMapRoutes(router *gin.Engine) {
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "success create", "data": accountMap})
 	})
-	group.PUT("/update/:id", func(c *gin.Context) {
-		idStr := c.Param("id")
-		if idStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
-			return
-		}
-		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+	group.PUT("/update/:keyword", func(c *gin.Context) {
+		keyword := c.Param("keyword")
+		if keyword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing keyword parameter"})
 			return
 		}
 		var accountMap model.AccountMap
@@ -53,9 +47,8 @@ func RegisterAccountMapRoutes(router *gin.Engine) {
 				"error": err.Error(),
 			})
 			return
-
 		}
-		if err := model.UpdateAccountMap(id, accountMap); err != nil {
+		if err := model.UpdateAccountMap(keyword, accountMap); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
@@ -63,25 +56,18 @@ func RegisterAccountMapRoutes(router *gin.Engine) {
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "success update", "data": accountMap})
 	})
-	group.DELETE("/delete/:id", func(c *gin.Context) {
-		idStr := c.Param("id")
-		if idStr == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing id parameter"})
+	group.DELETE("/delete/:keyword", func(c *gin.Context) {
+		keyword := c.Param("keyword")
+		if keyword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing keyword parameter"})
 			return
 		}
-		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-		if err := model.DeleteAccountMap(id); err != nil {
+		if err := model.DeleteAccountMap(keyword); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "success delete", "data": id})
+		c.JSON(http.StatusOK, gin.H{"message": "success delete", "data": keyword})
 	})
 }
