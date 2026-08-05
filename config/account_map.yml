@@ -16,10 +16,10 @@ account_maps:
     account: "Assets:AliPay:Balance"
     type: "asset"
   "地铁":
-    account: "Expenses:Transport"
+    account: "Expenses:Transport:Metro"
     type: "expense"
   "中运交通":
-    account: "Expenses:Transport"
+    account: "Expenses:Transport:Bus"
     type: "expense"
   "基金管理":
     account: "Income:Fund"
@@ -114,6 +114,10 @@ account_maps:
     type: "expense"
   # -- 交通：长途巴士
   "购票支付":
+    account: "Expenses:Transport:Bus"
+    type: "expense"
+  # -- 交通：公交
+  "广佛通":
     account: "Expenses:Transport:Bus"
     type: "expense"
   # -- 生活：快递
