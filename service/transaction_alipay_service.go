@@ -169,9 +169,17 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		isRepayment := strings.Contains(record.TransactionCat, "还款") || strings.Contains(record.Commodity, "还款")
 
 		if isRepayment {
-			// 还款情况：资金来源 (from) 是支付方式，目标 (to) 是还款对象（如花呗）
-			// fromAccount 已经在第一步通过 paymentMethod 匹配到了
-			// toAccount 需要从 commodity 或 counterparty 匹配
+			// 还款情况：资金来源 (from) 是支付方式，目标 (to) 是还款对象（如花呗/信用卡）
+			// 还款对象以 commodity + 交易分类为准，覆盖 counterparty 反向包含导致的误匹配
+			// （如 counterparty "招商银行" 会被 "招商银行(3229)" 反向包含匹配成储蓄卡）
+			repaymentTarget := record.Commodity + record.TransactionCat
+			for _, mapping := range accountMap {
+				if mapping.Type == "asset" && strings.Contains(repaymentTarget, mapping.Keyword) {
+					toAccount = mapping.Account
+					break
+				}
+			}
+			// 兜底：commodity/交易分类未匹配到还款对象时，退回 counterparty 匹配
 			if toAccount == "Assets:Other" {
 				for _, mapping := range accountMap {
 					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
