@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:10777';
+// API 地址：优先环境变量 VITE_API_BASE_URL（部署时可通过 .env 配置），
+// 未配置时走同源相对路径（生产环境前端由后端 / 提供，开发模式用 vite proxy）。
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export interface AccountMap {
   keyword: string;

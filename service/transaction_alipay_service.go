@@ -37,7 +37,7 @@ outerLoop:
 		uuid := strings.TrimSpace(row[9])
 		notes := strings.TrimSpace(row[11])
 
-		commodityMap, _ := model.LoadCommodityMap("config/commodity_map.yml")
+		commodityMap, _ := model.LoadCommodityMap(model.CommodityMapPath())
 
 		if transactionType == "不计收支" {
 			// 默认视为转账，除非匹配到 skip
@@ -107,12 +107,15 @@ outerLoop:
 func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 
 	accountMap := model.GetAccountMap()
-	// 默认账户
-	expenseAccount := "Expenses:Other"
-	incomeAccount := "Income:Other"
-	assetAccount := "Assets:Other"
-	fromAccount := "Assets:Other"
-	toAccount := "Assets:Other"
+	// 默认账户（由配置决定，未匹配时兜底）
+	defaultExpense := model.DefaultExpenseAccount()
+	defaultIncome := model.DefaultIncomeAccount()
+	defaultAsset := model.DefaultAssetAccount()
+	expenseAccount := defaultExpense
+	incomeAccount := defaultIncome
+	assetAccount := defaultAsset
+	fromAccount := defaultAsset
+	toAccount := defaultAsset
 
 	// 1. 匹配支付方式 (通常是支出/收入的资金来源/去向，或者是转账的资金来源)
 	for _, mapping := range accountMap {
@@ -128,15 +131,15 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		if strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty) {
 			switch mapping.Type {
 			case "expense":
-				if expenseAccount == "Expenses:Other" {
+				if expenseAccount == defaultExpense {
 					expenseAccount = mapping.Account
 				}
 			case "income":
-				if incomeAccount == "Income:Other" {
+				if incomeAccount == defaultIncome {
 					incomeAccount = mapping.Account
 				}
 			case "asset":
-				if toAccount == "Assets:Other" {
+				if toAccount == defaultAsset {
 					toAccount = mapping.Account
 				}
 			}
@@ -149,15 +152,15 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		if strings.Contains(combinedDest, mapping.Keyword) {
 			switch mapping.Type {
 			case "expense":
-				if expenseAccount == "Expenses:Other" {
+				if expenseAccount == defaultExpense {
 					expenseAccount = mapping.Account
 				}
 			case "income":
-				if incomeAccount == "Income:Other" {
+				if incomeAccount == defaultIncome {
 					incomeAccount = mapping.Account
 				}
 			case "asset":
-				if toAccount == "Assets:Other" {
+				if toAccount == defaultAsset {
 					toAccount = mapping.Account
 				}
 			}
@@ -180,7 +183,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 				}
 			}
 			// 兜底：commodity/交易分类未匹配到还款对象时，退回 counterparty 匹配
-			if toAccount == "Assets:Other" {
+			if toAccount == defaultAsset {
 				for _, mapping := range accountMap {
 					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						toAccount = mapping.Account
@@ -191,7 +194,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 		} else if strings.Contains(record.TransactionCat, "转入") || strings.Contains(record.Commodity, "转入") {
 			// 这种情况下，paymentMethod 通常是外部账户 (from)，商品信息里包含的是内部账户 (to)
 			// 如果 toAccount 还没匹配到，再次尝试从 commodity 匹配 "余额宝" 等
-			if toAccount == "Assets:Other" {
+			if toAccount == defaultAsset {
 				for _, mapping := range accountMap {
 					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						toAccount = mapping.Account
@@ -201,7 +204,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 			}
 		} else if strings.Contains(record.TransactionCat, "转出") || strings.Contains(record.Commodity, "转出") {
 			// 这种情况下，paymentMethod 通常是内部账户 (from)，商品信息里包含的是外部账户 (to)
-			if fromAccount == "Assets:Other" {
+			if fromAccount == defaultAsset {
 				for _, mapping := range accountMap {
 					if mapping.Type == "asset" && (strings.Contains(record.Commodity, mapping.Keyword) || strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) {
 						fromAccount = mapping.Account

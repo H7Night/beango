@@ -2,10 +2,15 @@ package model
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
+// beangoConfigPath 引导配置文件路径。
+// beango.yml 是全局配置的入口，其自身路径无法从配置中读取，故保留为常量；
+// 其余可配置项（配置文件目录、文件名、端口、目录等）均从 beango.yml 读取。
 const beangoConfigPath = "config/beango.yml"
 
 // DefaultOutputFolder 输出根目录兜底值。
@@ -26,8 +31,22 @@ type BeangoConfig struct {
 	Note        string    `json:"note"`
 }
 
-// loadBeangoConfig reads the beango.yml file
+// beangoCacheMu 保护 beango.yml 的内存缓存（转换按行调用配置，避免重复读文件）
+var (
+	beangoCacheMu sync.RWMutex
+	beangoCache   *beangoConfigFile
+)
+
+// loadBeangoConfig reads the beango.yml file (with in-memory cache)
 func loadBeangoConfig() (*beangoConfigFile, error) {
+	beangoCacheMu.RLock()
+	if beangoCache != nil {
+		c := beangoCache
+		beangoCacheMu.RUnlock()
+		return c, nil
+	}
+	beangoCacheMu.RUnlock()
+
 	var bcf beangoConfigFile
 	if err := readYAML(beangoConfigPath, &bcf); err != nil {
 		return nil, fmt.Errorf("读取配置失败: %w", err)
@@ -35,12 +54,64 @@ func loadBeangoConfig() (*beangoConfigFile, error) {
 	if bcf.Beango == nil {
 		bcf.Beango = make(map[string]string)
 	}
+
+	beangoCacheMu.Lock()
+	beangoCache = &bcf
+	beangoCacheMu.Unlock()
 	return &bcf, nil
 }
 
-// saveBeangoConfig writes to beango.yml
+// saveBeangoConfig writes to beango.yml and invalidates the cache
 func saveBeangoConfig(bcf *beangoConfigFile) error {
-	return writeYAML(beangoConfigPath, bcf)
+	if err := writeYAML(beangoConfigPath, bcf); err != nil {
+		return err
+	}
+	beangoCacheMu.Lock()
+	beangoCache = nil
+	beangoCacheMu.Unlock()
+	return nil
+}
+
+// ---- 配置辅助函数（运行环境相关，均从 beango.yml 读取，带默认值兜底） ----
+
+// ConfigFolder 配置文件目录
+func ConfigFolder() string {
+	return GetConfigString("configFolder", "./config")
+}
+
+// AccountMapPath 账户映射文件路径
+func AccountMapPath() string {
+	return filepath.Join(ConfigFolder(), GetConfigString("accountMapFile", "account_map.yml"))
+}
+
+// CommodityMapPath 商品映射文件路径
+func CommodityMapPath() string {
+	return filepath.Join(ConfigFolder(), GetConfigString("commodityMapFile", "commodity_map.yml"))
+}
+
+// ServerPort Web 服务端口
+func ServerPort() string {
+	return GetConfigString("serverPort", "10777")
+}
+
+// WebDir 前端静态资源目录
+func WebDir() string {
+	return GetConfigString("webDir", "./web/dist")
+}
+
+// DefaultExpenseAccount 未匹配支出兜底账户
+func DefaultExpenseAccount() string {
+	return GetConfigString("defaultExpenseAccount", "Expenses:Other")
+}
+
+// DefaultIncomeAccount 未匹配收入兜底账户
+func DefaultIncomeAccount() string {
+	return GetConfigString("defaultIncomeAccount", "Income:Other")
+}
+
+// DefaultAssetAccount 未匹配资产/负债兜底账户
+func DefaultAssetAccount() string {
+	return GetConfigString("defaultAssetAccount", "Assets:Other")
 }
 
 func GetBeangoConfigValue(key string) (string, error) {

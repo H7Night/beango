@@ -65,7 +65,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 		return model.BeancountTransaction{}, true
 	}
 
-	commodityMap, _ := model.LoadCommodityMap("config/commodity_map.yml")
+	commodityMap, _ := model.LoadCommodityMap(model.CommodityMapPath())
 
 	if transactionType == "不计收支" {
 		for keyword, inferredType := range commodityMap {
@@ -102,27 +102,30 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 
 func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	accountMap := model.GetAccountMap()
-	// 默认账户
-	expenseAccount := "Expenses:Other"
-	incomeAccount := "Income:Other"
-	assetAccount := "Assets:Other"
-	fromAccount := "Assets:Other"
-	toAccount := "Assets:Other"
+	// 默认账户（由配置决定，未匹配时兜底）
+	defaultExpense := model.DefaultExpenseAccount()
+	defaultIncome := model.DefaultIncomeAccount()
+	defaultAsset := model.DefaultAssetAccount()
+	expenseAccount := defaultExpense
+	incomeAccount := defaultIncome
+	assetAccount := defaultAsset
+	fromAccount := defaultAsset
+	toAccount := defaultAsset
 
 	// 优先匹配交易对方 (更精确的 Counterparty 优先于商品/分类关键词)
 	for _, mapping := range accountMap {
 		if (strings.Contains(record.Counterparty, mapping.Keyword) || strings.Contains(mapping.Keyword, record.Counterparty)) || strings.Contains(mapping.Keyword, record.Counterparty) {
 			switch mapping.Type {
 			case "expense":
-				if expenseAccount == "Expenses:Other" {
+				if expenseAccount == defaultExpense {
 					expenseAccount = mapping.Account
 				}
 			case "income":
-				if incomeAccount == "Income:Other" {
+				if incomeAccount == defaultIncome {
 					incomeAccount = mapping.Account
 				}
 			case "asset":
-				if assetAccount == "Assets:Other" {
+				if assetAccount == defaultAsset {
 					assetAccount = mapping.Account
 				}
 			}
@@ -135,15 +138,15 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		if strings.Contains(combinedText, mapping.Keyword) {
 			switch mapping.Type {
 			case "expense":
-				if expenseAccount == "Expenses:Other" {
+				if expenseAccount == defaultExpense {
 					expenseAccount = mapping.Account
 				}
 			case "income":
-				if incomeAccount == "Income:Other" {
+				if incomeAccount == defaultIncome {
 					incomeAccount = mapping.Account
 				}
 			case "asset":
-				if assetAccount == "Assets:Other" {
+				if assetAccount == defaultAsset {
 					assetAccount = mapping.Account
 				}
 			}

@@ -133,17 +133,18 @@ func runWebServer() {
 	routes.RegisterBeangoConfig(r)
 
 	// Serve static files for the frontend and handle SPA fallback
+	webDir := model.WebDir()
 	r.NoRoute(func(c *gin.Context) {
 		requestedPath := c.Request.URL.Path
-		filepath := path.Join("web/dist", requestedPath)
+		filepath := path.Join(webDir, requestedPath)
 		if _, err := os.Stat(filepath); err == nil {
 			c.File(filepath)
 			return
 		}
-		c.File("web/dist/index.html")
+		c.File(path.Join(webDir, "index.html"))
 	})
 
-	if err := r.Run(":10777"); err != nil {
+	if err := r.Run(":" + model.ServerPort()); err != nil {
 		panic(err)
 	}
 }

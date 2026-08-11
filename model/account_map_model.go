@@ -3,9 +3,13 @@ package model
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 )
 
-const accountMapPath = "config/account_map.yml"
+// accountMapPath 账户映射文件路径（由 beango.yml 的 configFolder/accountMapFile 决定）
+func accountMapPath() string {
+	return filepath.Join(ConfigFolder(), GetConfigString("accountMapFile", "account_map.yml"))
+}
 
 // accountMapFile mirrors the YAML file structure
 type accountMapFile struct {
@@ -31,7 +35,7 @@ var accountMapsLoaded bool
 // loadAccountMapFile reads the YAML file
 func loadAccountMapFile() (*accountMapFile, error) {
 	var af accountMapFile
-	if err := readYAML(accountMapPath, &af); err != nil {
+	if err := readYAML(accountMapPath(), &af); err != nil {
 		return nil, fmt.Errorf("读取账户映射配置失败: %w", err)
 	}
 	if af.AccountMaps == nil {
@@ -42,7 +46,7 @@ func loadAccountMapFile() (*accountMapFile, error) {
 
 // saveAccountMapFile writes the YAML file
 func saveAccountMapFile(af *accountMapFile) error {
-	return writeYAML(accountMapPath, af)
+	return writeYAML(accountMapPath(), af)
 }
 
 // mapToSlice converts the map to a sorted slice for cache/API

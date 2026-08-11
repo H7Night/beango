@@ -51,12 +51,24 @@ beango
 
 ### beango.yml
 
+所有运行参数（输出目录、端口、静态目录、配置文件位置、兜底账户等）均从 `beango.yml` 读取，代码中不写死：
+
 ```yaml
 beango:
   outputFolder: "./test/out" # 输出根目录（转换输出、中间文件与日志均在此）
   defaultFolder: "0-default" # 普通交易子目录
   securitFolder: "1-securities" # 证券交易子目录
+  serverPort: "10777" # Web 服务端口
+  webDir: "./web/dist" # 前端静态资源目录
+  configFolder: "./config" # 配置文件目录
+  accountMapFile: "account_map.yml" # 账户映射文件名
+  commodityMapFile: "commodity_map.yml" # 商品映射文件名
+  defaultExpenseAccount: "Expenses:Other" # 未匹配支出兜底账户
+  defaultIncomeAccount: "Income:Other" # 未匹配收入兜底账户
+  defaultAssetAccount: "Assets:Other" # 未匹配资产/负债兜底账户
 ```
+
+> 说明：`beango.yml` 自身路径是引导入口，无法从自身读取，保留为内置常量；其余路径、端口、兜底账户均由配置驱动。
 
 ## 开发
 
