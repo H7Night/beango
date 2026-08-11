@@ -1,5 +1,5 @@
 # Beango Configuration
 beango:
-  outputFolder: "./out"
-  defaultFolder: "0-default"
-  securitFolder: "1-securities"
+  outputFolder: "./test/out" # 输出根目录（out 已迁移至 test/out）
+  defaultFolder: "0-default" # 普通交易子目录
+  securitFolder: "1-securities" # 证券交易子目录

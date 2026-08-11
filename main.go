@@ -60,7 +60,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "用法: beango -type <alipay|wechat> [选项] <文件路径>\n")
 	fmt.Fprintf(os.Stderr, "选项:\n")
 	fmt.Fprintf(os.Stderr, "  -type string\n    \t账单类型: alipay 或 wechat\n")
-	fmt.Fprintf(os.Stderr, "  -output string\n    \t输出目录 (默认: ./out)\n")
+	fmt.Fprintf(os.Stderr, "  -output string\n    \t输出目录 (默认: ./test/out)\n")
 	fmt.Fprintf(os.Stderr, "  -merge\n    \t合并模式：追加到已有 bean 文件\n")
 }
 

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"beango/model"
 	"bufio"
 	"fmt"
 	"io"
@@ -71,11 +72,19 @@ func ReadFile(basePath string) (string, error) {
 	return builder.String(), nil
 }
 
-const ConvertAli = "out/convert-alipay.csv"
-const ConvertWec = "out/convert-wechat.xlsx"
+// ConvertAlipayPath 支付宝导入中间文件路径（由配置 outputFolder 决定）
+func ConvertAlipayPath() string {
+	return filepath.Join(model.GetConfigString("outputFolder", model.DefaultOutputFolder), "convert-alipay.csv")
+}
+
+// ConvertWechatPath 微信导入中间文件路径（由配置 outputFolder 决定）
+func ConvertWechatPath() string {
+	return filepath.Join(model.GetConfigString("outputFolder", model.DefaultOutputFolder), "convert-wechat.xlsx")
+}
 
 func InitOutputDir() error {
-	if err := os.MkdirAll("out", 0755); err != nil {
+	dir := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 	return nil

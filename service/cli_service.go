@@ -51,7 +51,7 @@ func RunCLI(sourceType, filePath, outputDir string, merge bool) error {
 	// 4. 确定输出目录
 	outDir := outputDir
 	if outDir == "" {
-		outDir = model.GetConfigString("outputFolder", "./out")
+		outDir = model.GetConfigString("outputFolder", model.DefaultOutputFolder)
 	}
 
 	// 5. 转换并输出

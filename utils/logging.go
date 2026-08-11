@@ -1,9 +1,11 @@
 package utils
 
 import (
+	"beango/model"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,13 +15,18 @@ var ConvertLogFile *os.File
 
 var Writer io.Writer = os.Stdout
 
+// logDir 日志目录（由配置 outputFolder 决定，out 已迁移至 test/out）
+func logDir() string {
+	return model.GetConfigString("outputFolder", model.DefaultOutputFolder)
+}
+
 func InitLogging() error {
 	// 确保日志目录存在
-	if err := os.MkdirAll("out", 0755); err != nil {
+	if err := os.MkdirAll(logDir(), 0755); err != nil {
 		return err
 	}
 	// 打开日志文件，使用截断模式
-	f, err := os.OpenFile("out/beango.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(filepath.Join(logDir(), "beango.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -34,10 +41,10 @@ func InitLogging() error {
 	gin.DefaultWriter = Writer
 	gin.DefaultErrorWriter = Writer
 
-	log.Println("Log file initialized and truncated: out/beango.log")
+	log.Printf("Log file initialized and truncated: %s", filepath.Join(logDir(), "beango.log"))
 
 	// 初始化转换日志
-	cf, err := os.OpenFile("out/convert.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	cf, err := os.OpenFile(filepath.Join(logDir(), "convert.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}

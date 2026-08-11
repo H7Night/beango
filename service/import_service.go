@@ -45,7 +45,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	content, _ := utils.ConvertGBKtoUTF8withBom(baseFile)
 
 	// 保存转换后的内容
-	targetFile, _ := os.Create(utils.ConvertAli) // Updated
+	targetFile, _ := os.Create(utils.ConvertAlipayPath()) // Updated
 	defer targetFile.Close()
 	if _, err := targetFile.Write(content); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "写入文件失败: " + err.Error()})
@@ -78,7 +78,7 @@ func ImportAlipayCSV(c *gin.Context) {
 	}
 
 	// 输出.bean文件
-	outputFolder := model.GetConfigString("outputFolder", "./out")
+	outputFolder := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
@@ -156,12 +156,12 @@ func ImportWechatCSV(c *gin.Context) {
 		rowIndex++
 	}
 	// 保存为中间处理文件
-	if err := newExcel.SaveAs(utils.ConvertWec); err != nil { // Updated
+	if err := newExcel.SaveAs(utils.ConvertWechatPath()); err != nil { // Updated
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存中间Excel失败: " + err.Error()})
 		return
 	}
 	// 第三步：重新读取中间Excel文件用于业务处理
-	finalExcel, err := excelize.OpenFile(utils.ConvertWec) // Updated
+	finalExcel, err := excelize.OpenFile(utils.ConvertWechatPath()) // Updated
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "读取中间Excel失败: " + err.Error()})
 		return
@@ -182,7 +182,7 @@ func ImportWechatCSV(c *gin.Context) {
 		return
 	}
 
-	outputFolder := model.GetConfigString("outputFolder", "./out")
+	outputFolder := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return

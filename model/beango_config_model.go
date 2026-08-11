@@ -8,6 +8,10 @@ import (
 
 const beangoConfigPath = "config/beango.yml"
 
+// DefaultOutputFolder 输出根目录兜底值。
+// out 目录已迁移至 test/out，实际路径由配置 outputFolder 控制。
+const DefaultOutputFolder = "./test/out"
+
 // beangoConfigFile mirrors the YAML file structure
 type beangoConfigFile struct {
 	Beango map[string]string `yaml:"beango"`

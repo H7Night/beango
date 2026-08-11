@@ -31,6 +31,6 @@ COPY --from=builder_frontend /app/beango-web/dist ./web/dist
 COPY config/ ./config/
 
 EXPOSE 10777
-VOLUME /out
+VOLUME /app/test/out
 
 ENTRYPOINT ["./beango"]

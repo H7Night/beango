@@ -33,11 +33,11 @@ beango
 
 所有配置均为 YAML 文件，存放在 `config/` 目录下：
 
-| 文件 | 用途 |
-|------|------|
-| `config/account_map.yml` | 关键词 → Beancount 账户映射（交易分类、支付方式等） |
-| `config/beango.yml` | 全局设置（输出目录等） |
-| `config/commodity_map.yml` | 商品关键词 → 交易类型映射（支出/收入/跳过） |
+| 文件                       | 用途                                                |
+| -------------------------- | --------------------------------------------------- |
+| `config/account_map.yml`   | 关键词 → Beancount 账户映射（交易分类、支付方式等） |
+| `config/beango.yml`        | 全局设置（输出目录等）                              |
+| `config/commodity_map.yml` | 商品关键词 → 交易类型映射（支出/收入/跳过）         |
 
 ### account_map.yml
 
@@ -53,8 +53,8 @@ beango
 
 ```yaml
 beango:
-  outputFolder: "./out"       # 输出根目录
-  defaultFolder: "0-default"  # 普通交易子目录
+  outputFolder: "./test/out" # 输出根目录（转换输出、中间文件与日志均在此）
+  defaultFolder: "0-default" # 普通交易子目录
   securitFolder: "1-securities" # 证券交易子目录
 ```
 
@@ -116,7 +116,9 @@ beango/
 ├── middleware/         # Gin 中间件
 ├── utils/             # 工具函数
 ├── beango-web/        # Vue.js 前端
-├── scripts/           # 构建/开发脚本
+├── scripts/           # 构建/开发/测试脚本
+│   └── sql/           # 数据库初始化脚本 (init.sql)
+├── test/              # 测试数据与输出 (test/out 为输出根目录)
 ├── main.go            # 入口（CLI/Web 模式分发）
 ├── Dockerfile
 └── docker-compose.yaml
@@ -129,4 +131,4 @@ beango/
 微信 Excel       ──→ 清洗 ──→ 行解析   ──→ TransWechat ──→ .bean 文件
 ```
 
-转换后的 `.bean` 文件按 `年份/月份/` 目录结构组织，可直接被 Beancount 主文件 `include`。
+转换后的 `.bean` 文件输出到 `outputFolder` 配置目录（默认 `./test/out`），按 `年份/月份/` 目录结构组织，可直接被 Beancount 主文件 `include`。

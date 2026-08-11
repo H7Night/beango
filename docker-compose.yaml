@@ -6,5 +6,5 @@ services:
     ports:
       - "10777:10777"
     volumes:
-      - ./out:/app/out
+      - ./test/out:/app/test/out
       - ./config:/app/config
