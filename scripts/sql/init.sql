@@ -41,4 +41,4 @@ INSERT INTO account_maps (id, keyword, account, type, created_at, updated_at) VA
 
 INSERT INTO beango_configs (id, created_at, updated_at, config_key, config_value, note) VALUES(1, '2025-05-17 13:17:02.133', '2025-05-17 13:17:02.133', 'defaultFolder', '0-default', NULL);
 INSERT INTO beango_configs (id, created_at, updated_at, config_key, config_value, note) VALUES(2, '2025-05-17 13:40:59.076', '2025-05-17 13:40:59.076', 'securitFolder', '1-securities', NULL);
-INSERT INTO beango_configs (id, created_at, updated_at, config_key, config_value, note) VALUES(3, '2025-05-17 13:41:32.201', '2025-05-17 13:41:32.201', 'outputFolder', './output', NULL);
+INSERT INTO beango_configs (id, created_at, updated_at, config_key, config_value, note) VALUES(3, '2025-05-17 13:41:32.201', '2025-05-17 13:41:32.201', 'outputFolder', './test/out', NULL);
