@@ -47,7 +47,7 @@ account_maps:
     account: "Assets:CGB:41508"
     type: "asset"
   "蚂蚁财富":
-    account: "Assets:Alipay:Funds"
+    account: "Assets:AliPay:Funds"
     type: "asset"
   "信用卡还款":
     account: "Liabilities:CMBCreditCard:2035"
