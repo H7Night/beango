@@ -14,6 +14,7 @@
 import io, sys, re, os, glob
 
 DATE_RE = re.compile(r'^(\d{4}-\d{2}-\d{2})\s')
+TIME_RE = re.compile(r'^\s+time:\s*"(\d{2}:\d{2}:\d{2})"')
 
 
 def sort_bean_text(text):
@@ -28,6 +29,14 @@ def sort_bean_text(text):
             break
         header.append(lines[i])
         i += 1
+
+    def block_time(blk):
+        """提取块内的 time 字段；无 time 返回 '00:00:00'（排在当日最前，如 balance 断言）。"""
+        for line in blk:
+            m = TIME_RE.match(line)
+            if m:
+                return m.group(1)
+        return '00:00:00'
 
     # 解析为 (日期, 块行列表)
     all_blocks = []
@@ -48,15 +57,17 @@ def sort_bean_text(text):
     if cur_date is not None:
         all_blocks.append((cur_date, cur))
 
-    # 按日期分组（稳定排序：组内保持原顺序）
-    groups = []  # (date, [block_lines])
+    # 按日期分组；组内按 time 正序（稳定排序）
+    groups = []  # (date, [ (time, block_lines) ])
     for date_s, blk in all_blocks:
+        t = block_time(blk)
         if groups and groups[-1][0] == date_s:
-            # 同一日期：直接合并块（保留原始块间的空行结构）
-            groups[-1][1].extend(blk)
+            groups[-1][1].append((t, blk))
         else:
-            groups.append((date_s, list(blk)))
+            groups.append((date_s, [(t, blk)]))
     groups.sort(key=lambda x: x[0])
+    for _, blks in groups:
+        blks.sort(key=lambda x: x[0])  # 按 time 正序，同 time 保持原顺序（稳定）
 
     # 重建
     out = []
@@ -65,7 +76,21 @@ def sort_bean_text(text):
     out.extend(header)
     if header:
         out.append('')
-    for idx, (date_s, glines) in enumerate(groups):
+    for idx, (date_s, timed_blocks) in enumerate(groups):
+        # 组内拼接各块：单行指令（open/close/pad）之间不插空行，
+        # 其余（交易/断言块）之间插一个空行
+        glines = []
+        last_single = False
+        for t, blk in timed_blocks:
+            blk2 = list(blk)
+            while blk2 and not blk2[-1].strip():
+                blk2.pop()
+            is_single = len([l for l in blk2 if l.strip()]) == 1  # 仅一行（如 open/close）
+            if glines and glines[-1].strip() and blk2 and blk2[0].strip():
+                if not (is_single and last_single):
+                    glines.append('')
+            glines.extend(blk2)
+            last_single = is_single
         while glines and not glines[-1].strip():
             glines.pop()
         out.extend(glines)
