@@ -22,7 +22,7 @@ account_maps:
     account: "Expenses:Transport:Bus"
     type: "expense"
   "基金管理":
-    account: "Income:Fund"
+    account: "Income:Funds"
     type: "income"
   "光大银行":
     account: "Assets:CEB:1027"
@@ -154,6 +154,10 @@ account_maps:
   "拼多多":
     account: "Expenses:Shopping:Home"
     type: "expense"
+  # -- 购物：服饰
+  "优衣库":
+    account: "Expenses:Shopping:Clothing"
+    type: "expense"
   # -- 购物：数码
   "闪魔":
     account: "Expenses:Shopping:Digital"
@@ -172,6 +176,10 @@ account_maps:
     type: "expense"
   "滴滴出行":
     account: "Expenses:Transport:Bus"
+    type: "expense"
+  # -- 交通：油费
+  "中淼能源":
+    account: "Expenses:Transport:Car:Oil"
     type: "expense"
   "公交车票":
     account: "Expenses:Transport:Bus"
