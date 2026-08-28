@@ -14,7 +14,14 @@ func TransAlipay(records [][]string) ([]string, [5]int, error) {
 	var result []string
 	// 重置计数器
 	count = [5]int{0, 0, 0, 0}
-	if len(records) <= 24 {
+	// 校验支付宝格式：表头行 + 至少 1 条交易记录。
+	// 不能用固定行数阈值（如 >24），否则 2-3 天的短账单（十几条记录）会被误判为格式错误。
+	if len(records) < 2 {
+		log.Println("导入文件不符合支付宝格式")
+		return nil, [5]int{}, errors.New("导入文件不符合支付宝格式")
+	}
+	// 校验表头特征（首行应包含"交易时间"列），避免误传其他格式文件
+	if !strings.Contains(records[0][0], "交易时间") {
 		log.Println("导入文件不符合支付宝格式")
 		return nil, [5]int{}, errors.New("导入文件不符合支付宝格式")
 	}

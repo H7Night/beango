@@ -24,6 +24,14 @@ func alipayRepaymentRow() []string {
 	}
 }
 
+// alipayHeaderRow 模拟支付宝 CSV 过滤后的表头行（首行）
+func alipayHeaderRow() []string {
+	return []string{
+		"交易时间", "交易分类", "交易对方", "对方账号", "商品说明",
+		"收/支", "金额", "收/付款方式", "交易状态", "交易订单号", "商家订单号", "备注",
+	}
+}
+
 func TestTransAlipayRepayment(t *testing.T) {
 	// go test 的工作目录是包目录 (service/)，配置在项目根
 	wd, err := os.Getwd()
@@ -35,9 +43,10 @@ func TestTransAlipayRepayment(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
-	// TransAlipay 要求 len(records) > 24，首行被跳过
+	// TransAlipay 要求表头行 + 至少 1 条交易记录，首行（表头）被跳过
 	var records [][]string
-	for i := 0; i < 25; i++ {
+	records = append(records, alipayHeaderRow())
+	for i := 0; i < 24; i++ {
 		records = append(records, alipayRepaymentRow())
 	}
 
