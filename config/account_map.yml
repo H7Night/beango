@@ -1,266 +1,238 @@
-# Beango Account Map Configuration
-# keyword → {account, type} 映射表
-# type: asset(资产/负债) | expense(支出) | income(收入)
-
 account_maps:
-  "招商银行信用卡(2035)":
-    account: "Liabilities:CMBCreditCard:2035"
-    type: "asset"
-  "花呗":
-    account: "Liabilities:Huabei"
-    type: "asset"
-  "余额宝":
-    account: "Assets:AliPay:Balance"
-    type: "asset"
-  "Yu'E Bao":
-    account: "Assets:AliPay:Balance"
-    type: "asset"
-  "地铁":
-    account: "Expenses:Transport:Metro"
-    type: "expense"
-  "中运交通":
-    account: "Expenses:Transport:Bus"
-    type: "expense"
-  "基金管理":
-    account: "Income:Funds"
-    type: "income"
-  "光大银行":
-    account: "Assets:CEB:1027"
-    type: "asset"
-  "招商银行(3229)":
-    account: "Assets:CMB:3229"
-    type: "asset"
-  "零钱":
-    account: "Assets:WeChat"
-    type: "asset"
-  "招商银行储蓄卡(3229)":
-    account: "Assets:CMB:3229"
-    type: "asset"
-  "转账备注":
-    account: "Income:RedEnvelope"
-    type: "income"
-  # -- 退款
-  "退款":
-    account: "Income:Rebate"
-    type: "income"
-  "广发银行储蓄卡(1508)":
-    account: "Assets:CGB:41508"
-    type: "asset"
-  "蚂蚁财富":
-    account: "Assets:AliPay:Funds"
-    type: "asset"
-  "信用卡还款":
-    account: "Liabilities:CMBCreditCard:2035"
-    type: "asset"
-  "花呗主动还款":
-    account: "Liabilities:Huabei"
-    type: "asset"
-  "余额":
-    account: "Assets:AliPay:Balance"
-    type: "asset"
-  # ====== 商户关键词 → 精细账户（优先于分类兜底） ======
-  # -- 餐饮：早餐
-  "中华包点":
-    account: "Expenses:Food:Breakfast"
-    type: "expense"
-  # -- 餐饮：午餐
-  "芬记美食":
-    account: "Expenses:Food:Lunch"
-    type: "expense"
-  # -- 餐饮：晚餐
-  "全天靓粥":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  "沙县小吃":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  "大家乐":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  "肯德基":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  "Ameigo梅果":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  "小伞":
-    account: "Expenses:Food:Dinner"
-    type: "expense"
-  # -- 餐饮：零食/饮品
-  "柠檬树小食店":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "零食有鸣":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "雨东烘焙":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "瑞幸":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "蜜雪冰城":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "手打柠檬茶":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "野人先生":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "广西果酱烧烤":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "惠能优选":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "零烟阁":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  "美宜佳":
-    account: "Expenses:Food:Snack"
-    type: "expense"
-  # -- 购物：游戏
-  "Steam":
-    account: "Expenses:Shopping:Game"
-    type: "expense"
-  # -- 购物：模玩
-  "THE GUNDAM BASE":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  "万代南梦宫":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  "宅物仓":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  "蛋蛋蛋":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  "万代":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  "超合金":
-    account: "Expenses:Shopping:Toy"
-    type: "expense"
-  # -- 购物：健身补剂
-  "on舰":
-    account: "Expenses:Shopping:Makeup"
-    type: "expense"
-  # -- 购物：家居百货
-  "宜家":
-    account: "Expenses:Shopping:Home"
-    type: "expense"
-  "拼多多":
-    account: "Expenses:Shopping:Home"
-    type: "expense"
-  # -- 购物：服饰
-  "优衣库":
-    account: "Expenses:Shopping:Clothing"
-    type: "expense"
-  # -- 购物：数码
-  "闪魔":
-    account: "Expenses:Shopping:Digital"
-    type: "expense"
-  # -- 交通：共享单车
-  "哈啰":
-    account: "Expenses:Transport:Bike"
-    type: "expense"
-  # -- 交通：长途巴士
-  "购票支付":
-    account: "Expenses:Transport:Bus"
-    type: "expense"
-  # -- 交通：公交
-  "广佛通":
-    account: "Expenses:Transport:Bus"
-    type: "expense"
-  "滴滴出行":
-    account: "Expenses:Transport:Bus"
-    type: "expense"
-  # -- 交通：油费
-  "中淼能源":
-    account: "Expenses:Transport:Car:Oil"
-    type: "expense"
-  "公交车票":
-    account: "Expenses:Transport:Bus"
-    type: "expense"
-  # -- 交通：停车
-  "停简单":
-    account: "Expenses:Transport:Car:Parking"
-    type: "expense"
-  # -- 生活：快递
-  "中通":
-    account: "Expenses:Home:Delivery"
-    type: "expense"
-  "丰巢":
-    account: "Expenses:Home:Delivery"
-    type: "expense"
-  # -- 生活：话费
-  "中国电信":
-    account: "Expenses:Home:Phone"
-    type: "expense"
-  "中国移动":
-    account: "Expenses:Home:Phone"
-    type: "expense"
-  # -- 生活：理发
-  "首艺造型":
-    account: "Expenses:Home:Haircut"
-    type: "expense"
-  # -- 生活：证件/行政
-  "驾驶证":
-    account: "Expenses:Home:Other"
-    type: "expense"
-  "芯邮":
-    account: "Expenses:Home:Other"
-    type: "expense"
-  # -- 红包支出
-  "支付宝红包":
-    account: "Expenses:Invest:RedEnvelope"
-    type: "expense"
-  # ====== 支付宝交易分类 → Beancount 支出账户（兜底） ======
-  "餐饮美食":
-    account: "Expenses:Food:Other"
-    type: "expense"
-  "日用百货":
-    account: "Expenses:Shopping:Home"
-    type: "expense"
-  "交通出行":
-    account: "Expenses:Transport"
-    type: "expense"
-  "家居家装":
-    account: "Expenses:Shopping:Home"
-    type: "expense"
-  "文化休闲":
-    account: "Expenses:Entertainment:Other"
-    type: "expense"
-  "服饰美容":
-    account: "Expenses:Shopping:Clothing"
-    type: "expense"
-  "数码电器":
-    account: "Expenses:Shopping:Digital"
-    type: "expense"
-  "生活服务":
-    account: "Expenses:Home:Other"
-    type: "expense"
-  "运动健身":
-    account: "Expenses:Health:Other"
-    type: "expense"
-  "医疗健康":
-    account: "Expenses:Health:Medical"
-    type: "expense"
-  # 微信交易分类 → Beancount 支出账户
-  "餐饮":
-    account: "Expenses:Food:Other"
-    type: "expense"
-  "购物":
-    account: "Expenses:Shopping:Other"
-    type: "expense"
-  "出行":
-    account: "Expenses:Transport"
-    type: "expense"
-  "生活":
-    account: "Expenses:Home:Other"
-    type: "expense"
-  "娱乐":
-    account: "Expenses:Entertainment:Other"
-    type: "expense"
+  招商银行信用卡(2035):
+    account: Liabilities:CMBCreditCard:2035
+    type: asset
+  花呗:
+    account: Liabilities:Huabei
+    type: asset
+  余额宝:
+    account: Assets:AliPay:Balance
+    type: asset
+  Yu'E Bao:
+    account: Assets:AliPay:Balance
+    type: asset
+  地铁:
+    account: Expenses:Transport:Metro
+    type: expense
+  中运交通:
+    account: Expenses:Transport:Bus
+    type: expense
+  基金管理:
+    account: Income:Invest:Interest
+    type: income
+  光大银行:
+    account: Assets:CEB:1027
+    type: asset
+  招商银行(3229):
+    account: Assets:CMB:3229
+    type: asset
+  零钱:
+    account: Assets:WeChat
+    type: asset
+  招商银行储蓄卡(3229):
+    account: Assets:CMB:3229
+    type: asset
+  转账备注:
+    account: Income:Social:RedEnvelope
+    type: income
+  退款:
+    account: Income:Rebate
+    type: income
+  广发银行储蓄卡(1508):
+    account: Assets:CGB:41508
+    type: asset
+  蚂蚁财富:
+    account: Assets:AliPay:Funds
+    type: asset
+  信用卡还款:
+    account: Liabilities:CMBCreditCard:2035
+    type: asset
+  花呗主动还款:
+    account: Liabilities:Huabei
+    type: asset
+  余额:
+    account: Assets:AliPay:Balance
+    type: asset
+  中华包点:
+    account: Expenses:Food:Breakfast
+    type: expense
+  芬记美食:
+    account: Expenses:Food:Lunch
+    type: expense
+  全天靓粥:
+    account: Expenses:Food:Dinner
+    type: expense
+  沙县小吃:
+    account: Expenses:Food:Dinner
+    type: expense
+  大家乐:
+    account: Expenses:Food:Dinner
+    type: expense
+  肯德基:
+    account: Expenses:Food:Dinner
+    type: expense
+  Ameigo梅果:
+    account: Expenses:Food:Dinner
+    type: expense
+  小伞:
+    account: Expenses:Food:Dinner
+    type: expense
+  柠檬树小食店:
+    account: Expenses:Food:Snack
+    type: expense
+  零食有鸣:
+    account: Expenses:Food:Snack
+    type: expense
+  雨东烘焙:
+    account: Expenses:Food:Snack
+    type: expense
+  瑞幸:
+    account: Expenses:Food:Snack
+    type: expense
+  蜜雪冰城:
+    account: Expenses:Food:Snack
+    type: expense
+  手打柠檬茶:
+    account: Expenses:Food:Snack
+    type: expense
+  野人先生:
+    account: Expenses:Food:Snack
+    type: expense
+  广西果酱烧烤:
+    account: Expenses:Food:Snack
+    type: expense
+  惠能优选:
+    account: Expenses:Food:Snack
+    type: expense
+  零烟阁:
+    account: Expenses:Food:Snack
+    type: expense
+  美宜佳:
+    account: Expenses:Food:Snack
+    type: expense
+  Steam:
+    account: Expenses:Entertainment:Games
+    type: expense
+  THE GUNDAM BASE:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  万代南梦宫:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  宅物仓:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  蛋蛋蛋:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  万代:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  超合金:
+    account: Expenses:Shopping:Collectibles
+    type: expense
+  on舰:
+    account: Expenses:Shopping:Skincare
+    type: expense
+  宜家:
+    account: Expenses:Shopping:HomeGoods
+    type: expense
+  拼多多:
+    account: Expenses:Shopping:HomeGoods
+    type: expense
+  优衣库:
+    account: Expenses:Shopping:Apparel
+    type: expense
+  闪魔:
+    account: Expenses:Shopping:Electronics
+    type: expense
+  哈啰:
+    account: Expenses:Transport:Bike
+    type: expense
+  购票支付:
+    account: Expenses:Transport:Bus
+    type: expense
+  广佛通:
+    account: Expenses:Transport:Bus
+    type: expense
+  滴滴出行:
+    account: Expenses:Transport:Bus
+    type: expense
+  中淼能源:
+    account: Expenses:Transport:Car:Fuel
+    type: expense
+  公交车票:
+    account: Expenses:Transport:Bus
+    type: expense
+  停简单:
+    account: Expenses:Transport:Car:Parking
+    type: expense
+  中通:
+    account: Expenses:Home:Delivery
+    type: expense
+  丰巢:
+    account: Expenses:Home:Delivery
+    type: expense
+  中国电信:
+    account: Expenses:Home:Mobile
+    type: expense
+  中国移动:
+    account: Expenses:Home:Mobile
+    type: expense
+  首艺造型:
+    account: Expenses:Home:Grooming
+    type: expense
+  驾驶证:
+    account: Expenses:Other
+    type: expense
+  芯邮:
+    account: Expenses:Other
+    type: expense
+  支付宝红包:
+    account: Expenses:Social:RedEnvelope
+    type: expense
+  餐饮美食:
+    account: Expenses:Food:Other
+    type: expense
+  日用百货:
+    account: Expenses:Shopping:HomeGoods
+    type: expense
+  交通出行:
+    account: Expenses:Other
+    type: expense
+  家居家装:
+    account: Expenses:Shopping:HomeGoods
+    type: expense
+  文化休闲:
+    account: Expenses:Entertainment:Other
+    type: expense
+  服饰美容:
+    account: Expenses:Shopping:Apparel
+    type: expense
+  数码电器:
+    account: Expenses:Shopping:Electronics
+    type: expense
+  生活服务:
+    account: Expenses:Other
+    type: expense
+  运动健身:
+    account: Expenses:Health:Other
+    type: expense
+  医疗健康:
+    account: Expenses:Health:Pharmacy
+    type: expense
+  餐饮:
+    account: Expenses:Food:Other
+    type: expense
+  购物:
+    account: Expenses:Shopping:Other
+    type: expense
+  出行:
+    account: Expenses:Other
+    type: expense
+  生活:
+    account: Expenses:Other
+    type: expense
+  娱乐:
+    account: Expenses:Entertainment:Other
+    type: expense
