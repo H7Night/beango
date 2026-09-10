@@ -9,6 +9,6 @@ beango:
   configFolder: "./config" # 配置文件目录（account_map.yml 等存放于此）
   accountMapFile: "account_map.yml" # 账户映射文件名
   commodityMapFile: "commodity_map.yml" # 商品映射文件名
-  defaultExpenseAccount: "Expenses:Other" # 未匹配交易支出兜底账户
-  defaultIncomeAccount: "Income:Other" # 未匹配交易收入兜底账户
-  defaultAssetAccount: "Assets:Other" # 未匹配交易资产/负债兜底账户
+  defaultExpenseAccount: "Equity:Uncategorized" # 未匹配交易兜底占位账户
+  defaultIncomeAccount: "Equity:Uncategorized" # 未匹配交易兜底占位账户
+  defaultAssetAccount: "Equity:Uncategorized" # 未匹配交易兜底占位账户

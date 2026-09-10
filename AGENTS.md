@@ -1,5 +1,14 @@
 # AGENTS.md — beango
 
+## Windows 约束
+**当前环境是 Windows 10 / pwsh7**
+- 默认禁止使用 Bash 语法，除非确定此 shell 处在 Linux 环境
+- 不要使用 Bash 引号/转义习惯，在 PowerShell 命令里，复杂正则优先用单引号包裹。
+- 如果正则本身同时包含单引号和双引号，优先拆成多个简单 rg 命令。
+- 执行多行 Python 禁止使用 Bash heredoc ；改用 PowerShell here-string | python -
+- pwsh 中，语句块表达式（如 `foreach`、`if`）不能直接作为管道输入。 需要先使用 `$()` / `@()` 包裹，或先赋值给变量。 普通命令输出可直接进入管道，无需额外包裹。
+- PowerShell 使用 `rg` 时，通配目录必须先用 `Get-ChildItem -Filter` 展开为真实路径，禁止直接把含 `*` 的搜索路径传给 `rg`。
+
 支付宝/微信交易账单 → [Beancount](https://beancount.github.io/) 格式的 Go 工具（CLI + Web）。
 
 ## Project
@@ -11,25 +20,30 @@
 ## Commands
 - 构建: `go build -o bin/beango.exe .`
 - 测试: `go test ./...`
-- CLI: `bin/beango.exe -type <alipay|wechat> <文件> [-output DIR] [-merge]`
+- CLI: `bin/beango.exe -type <alipay|wechat> <文件> [-output DIR] [-merge] [-p]`
   - 支付宝 CSV 为 **GBK** 编码（`utils/ConvertGBKtoUTF8withBom` 自动转）；微信为 xlsx
   - 非 `-merge` 会**删除并重建**当日输出目录，故多文件转换需先转第一个（非 merge），其余用 `-merge` 追加
+  - `-merge` 追加时按 uuid 自动去重（无 uuid 的条目不去重）
+  - `-p/--pass` 全量确认：所有条目标记为已确认 `*`（默认未匹配条目标 `!`）
 - 账本校验: `cd ../beancount && .venv/Scripts/python.exe -m beancount.scripts.check main.bean`
 - 脚本（`scripts/`，python）：`sort_bean_files.py` 账本按时序正序排序；`check_bean_order.py` 校验排序；`check_bean_duplicates.py` 检查重复 uuid；`account_balance.py` 查询账户时点余额（含 pad）；`reconcile*.py`/`match_*.py` 对账
 
 ## Architecture
 - `service/cli_service.go` / `import_service.go`：文件解析入口（GBK 转换、CSV/xlsx 清洗）
 - `service/transaction_alipay_service.go` / `transaction_wechat_service.go`：记录→beancount 条目，按「支付方式→对方→商品/分类」顺序匹配账户；`TransAlipay` 校验表头（首行含"交易时间"）+≥1 条记录
-- `service/export_service.go`：`TransToBeancount` 按年月分组写 .bean，`-merge` 追加+排序；收益发放（`xxx-收益发放`）分到 `1-securities`
+- `service/export_service.go`：`TransToBeancount` 按年月分组写 .bean，`-merge` 追加+排序（追加时按 uuid 自动去重，`dedupByUUID`）；收益发放（`xxx-收益发放`）分到 `1-securities`
 - `model/`：配置加载（account_map / commodity_map / beango.yml 各路径与兜底账户）
 - `utils/`：GBK→UTF8、日志、输出目录初始化
 
 ## Conventions
 - 提交信息：`fix(scope): 中文描述` / `feat(scope): 中文描述`（scope 如 alipay/account_map/scripts）；一个 bug 或一个 feat 单独一个提交，不合并
-- 新增商户：先在 `config/account_map.yml` 加关键词映射（`account` + `type: expense|income|asset`），避免落兜底账户（`Expenses:Other` 等）
-- 收益发放/基金类收入账户用账本中实际开户的 `Income:Funds`（`Income:Fund` 不存在）
-- beancount 账本约定：文件按日期+时分秒**正序**；`balance` 断言检查的是**当日交易之前**（即前一日末）的余额，表达"某日还清后为 0"需把断言日期放到**次日**
-- 合并账单去重：以 `uuid` 为准（脚本 `check_bean_duplicates.py`），手工补记可无 uuid
+- 新增商户：先在 `config/account_map.yml` 加关键词映射（`account` + `type: expense|income|asset`），避免落兜底账户（`Equity:Uncategorized`）
+- 收益发放/基金类收入账户用账本中实际开户的 `Income:Invest:Interest`（见 `../beancount/accounts/income.bean` 与 `account_map.yml` 的 `基金管理`）
+- beancount 账本约定：文件按日期+时分秒**倒序**；`balance` 断言检查的是**当日交易之前**（即前一日末）的余额，表达"某日还清后为 0"需把断言日期放到**次日**
+- 合并账单去重：以 `uuid` 为准（脚本 `check_bean_duplicates.py`，工具内 `-merge` 追加时自动按 uuid 去重），手工补记可无 uuid
+- 元数据：每条交易带 `bill:`（alipay/wechat，记录来源）；转账/还款条目标记 `chain: "<来源账户> => <目标账户>"` 串联资金链路；`posted:`（入账日）为待扩展字段，当前账单输入无此数据
+- 未匹配兜底：账户匹配不到时用 `Equity:Uncategorized` 占位并标 `!`（全部匹配标 `*`）；`-p/--pass` 可强制全部标 `*`
+- 原始账单归档：`outputFolder/raw/<alipay|wechat>/<yyyy-MM-dd>/`，便于回放与对账
 
 ## Notes
 （留空，后续按需补充）

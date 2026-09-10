@@ -12,6 +12,39 @@ import (
 	"time"
 )
 
+var passAllFlag = false
+
+var uuidLineRe = regexp.MustCompile(`uuid:\s*"([^"]+)"`)
+
+// extractUUID 从一条 beancount 条目中提取 uuid 元数据值，没有则返回空串
+func extractUUID(entry string) string {
+	if m := uuidLineRe.FindStringSubmatch(entry); len(m) > 1 {
+		return m[1]
+	}
+	return ""
+}
+
+// dedupByUUID 返回 incoming 中去掉已在 existing 中出现过 uuid 的条目；incoming 内部也按 uuid 去重（保留先出现者）。无 uuid 的条目不去重，原样保留。
+func dedupByUUID(existing, incoming []string) []string {
+	seen := make(map[string]bool, len(existing))
+	for _, e := range existing {
+		if u := extractUUID(e); u != "" {
+			seen[u] = true
+		}
+	}
+	var out []string
+	for _, e := range incoming {
+		if u := extractUUID(e); u != "" {
+			if seen[u] {
+				continue
+			}
+			seen[u] = true
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 // TransToBeancount 将交易记录写入 .bean 文件
 func TransToBeancount(entries []string, path string, isMerge bool) error {
 	if len(entries) == 0 {
@@ -100,7 +133,7 @@ func writeGroupedEntries(grouped map[string][]string, baseDir, subFolder string,
 				allEntries = append(allEntries, existing...)
 			}
 		}
-		allEntries = append(allEntries, group...)
+		allEntries = append(allEntries, dedupByUUID(allEntries, group)...)
 
 		// 按时间排序
 		sort.Slice(allEntries, func(i, j int) bool {

@@ -20,6 +20,8 @@ var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不�
 
 // ImportAlipayCSV 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
+	passAllFlag = false
+
 	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
@@ -79,6 +81,9 @@ func ImportAlipayCSV(c *gin.Context) {
 
 	// 输出.bean文件
 	outputFolder := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
+	if _, err := utils.ArchiveRawFile("alipay", utils.ConvertAlipayPath(), outputFolder); err != nil {
+		log.Printf("警告: 归档原始账单失败: %v", err)
+	}
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
@@ -96,6 +101,8 @@ func ImportAlipayCSV(c *gin.Context) {
 
 // ImportWechatCSV 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
+	passAllFlag = false
+
 	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
@@ -183,6 +190,9 @@ func ImportWechatCSV(c *gin.Context) {
 	}
 
 	outputFolder := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
+	if _, err := utils.ArchiveRawFile("wechat", utils.ConvertWechatPath(), outputFolder); err != nil {
+		log.Printf("警告: 归档原始账单失败: %v", err)
+	}
 	if err := TransToBeancount(res, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return

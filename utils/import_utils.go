@@ -82,6 +82,27 @@ func ConvertWechatPath() string {
 	return filepath.Join(model.GetConfigString("outputFolder", model.DefaultOutputFolder), "convert-wechat.xlsx")
 }
 
+// ArchiveRawFile 将原始账单文件归档到 outDir/raw/<sourceType>/<yyyy-MM-dd>/ 下，便于回放与对账。返回保存路径。
+func ArchiveRawFile(sourceType, srcPath, outDir string) (string, error) {
+	if srcPath == "" {
+		return "", fmt.Errorf("源文件路径为空")
+	}
+	date := time.Now().Format("2006-01-02")
+	destDir := filepath.Join(outDir, "raw", sourceType, date)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return "", err
+	}
+	srcData, err := os.ReadFile(srcPath)
+	if err != nil {
+		return "", err
+	}
+	destPath := filepath.Join(destDir, filepath.Base(srcPath))
+	if err := os.WriteFile(destPath, srcData, 0644); err != nil {
+		return "", err
+	}
+	return destPath, nil
+}
+
 func InitOutputDir() error {
 	dir := model.GetConfigString("outputFolder", model.DefaultOutputFolder)
 	if err := os.MkdirAll(dir, 0755); err != nil {

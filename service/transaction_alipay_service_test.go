@@ -9,18 +9,18 @@ import (
 // alipayRepaymentRow 模拟支付宝 CSV 中"招商银行 信用卡还款"（从余额宝还信用卡）的记录行
 func alipayRepaymentRow() []string {
 	return []string{
-		"2026-08-05 17:15:06",                    // transactionTime
-		"信用借还",                                // transactionCat
-		"招商银行",                                // counterparty
-		"/",                                      // 4th col (unused)
-		"信用卡还款",                              // commodity
-		"不计收支",                                // transactionType
-		"1247.80",                                // amount
-		"余额宝",                                  // paymentMethod
-		"还款成功",                                // transactionStatus
-		"2026080500003001520093859760",           // uuid
-		"",                                       // 11th col (unused)
-		"/",                                      // notes
+		"2026-08-05 17:15:06",          // transactionTime
+		"信用借还",                         // transactionCat
+		"招商银行",                         // counterparty
+		"/",                            // 4th col (unused)
+		"信用卡还款",                        // commodity
+		"不计收支",                         // transactionType
+		"1247.80",                      // amount
+		"余额宝",                          // paymentMethod
+		"还款成功",                         // transactionStatus
+		"2026080500003001520093859760", // uuid
+		"",                             // 11th col (unused)
+		"/",                            // notes
 	}
 }
 
@@ -70,5 +70,85 @@ func TestTransAlipayRepayment(t *testing.T) {
 	}
 	if strings.Contains(entry, "Assets:CMB:3229") {
 		t.Errorf("不应误匹配为 Assets:CMB:3229，实际:\n%s", entry)
+	}
+}
+
+func TestTransAlipayMatchedFlag(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd 失败: %v", err)
+	}
+	if err := os.Chdir(".."); err != nil {
+		t.Fatalf("Chdir 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	var records [][]string
+	records = append(records, alipayHeaderRow())
+	records = append(records, alipayRepaymentRow())
+
+	entries, _, err := TransAlipay(records)
+	if err != nil {
+		t.Fatalf("TransAlipay 失败: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("期望 1 条记录，实际 %d", len(entries))
+	}
+
+	entry := entries[0]
+	if !strings.Contains(entry, " * \"") {
+		t.Errorf("两端均匹配的条目应标记为已确认 *，实际:\n%s", entry)
+	}
+	if !strings.Contains(entry, `bill: "alipay"`) {
+		t.Errorf("应包含 bill: \"alipay\" 元数据，实际:\n%s", entry)
+	}
+	if !strings.Contains(entry, `chain: "Assets:AliPay:Balance => Liabilities:CMBCreditCard:2035"`) {
+		t.Errorf("应包含 chain 资金链路元数据，实际:\n%s", entry)
+	}
+}
+
+func TestTransAlipayUnmatchedFlag(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd 失败: %v", err)
+	}
+	if err := os.Chdir(".."); err != nil {
+		t.Fatalf("Chdir 失败: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	unmatchedRow := []string{
+		"2026-08-05 17:15:06",   // transactionTime
+		"其它",                    // transactionCat
+		"神秘方",                   // counterparty
+		"/",                     // 4th col (unused)
+		"谜之物品",                  // commodity
+		"支出",                    // transactionType
+		"66.66",                 // amount
+		"某支付工具",                 // paymentMethod
+		"交易成功",                  // transactionStatus
+		"20260805UNMATCHED0001", // uuid
+		"",                      // 11th col (unused)
+		"/",                     // notes
+	}
+
+	var records [][]string
+	records = append(records, alipayHeaderRow())
+	records = append(records, unmatchedRow)
+
+	entries, _, err := TransAlipay(records)
+	if err != nil {
+		t.Fatalf("TransAlipay 失败: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("期望 1 条记录，实际 %d", len(entries))
+	}
+
+	entry := entries[0]
+	if !strings.Contains(entry, " ! \"") {
+		t.Errorf("未匹配的条目应标记为待审核 !，实际:\n%s", entry)
+	}
+	if !strings.Contains(entry, "Equity:Uncategorized") {
+		t.Errorf("未匹配账户应兜底为 Equity:Uncategorized，实际:\n%s", entry)
 	}
 }

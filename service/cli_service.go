@@ -20,7 +20,10 @@ import (
 // filePath: 输入文件路径
 // outputDir: 输出目录
 // merge: 是否合并模式
-func RunCLI(sourceType, filePath, outputDir string, merge bool) error {
+// passAll: 是否全量确认（所有条目标记 *)
+func RunCLI(sourceType, filePath, outputDir string, merge, passAll bool) error {
+	passAllFlag = passAll
+
 	// 1. 加载 account_map
 	if err := model.LoadAccountMap(); err != nil {
 		return fmt.Errorf("加载账户映射失败: %w", err)
@@ -54,12 +57,17 @@ func RunCLI(sourceType, filePath, outputDir string, merge bool) error {
 		outDir = model.GetConfigString("outputFolder", model.DefaultOutputFolder)
 	}
 
-	// 5. 转换并输出
+	// 5. 归档原始账单（失败仅警告，不中断）
+	if _, err := utils.ArchiveRawFile(sourceType, filePath, outDir); err != nil {
+		fmt.Printf("警告: 归档原始账单失败: %v\n", err)
+	}
+
+	// 6. 转换并输出
 	if err := TransToBeancount(entries, outDir, merge); err != nil {
 		return fmt.Errorf("转换 beancount 失败: %w", err)
 	}
 
-	// 6. 输出统计
+	// 7. 输出统计
 	fmt.Printf("\n=== 转换完成 ===\n")
 	fmt.Printf("支出: %d  收入: %d  转账: %d  未识别: %d  跳过: %d\n",
 		count[0], count[1], count[2], count[3], count[4])

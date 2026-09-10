@@ -18,6 +18,9 @@ beango -type alipay alipay_record.csv -output ./my-bean
 
 # 合并模式（追加到已有 bean 文件）
 beango -type wechat wechat_record.xlsx -merge
+
+# 全量确认（标记全部为已确认 *）
+beango -type alipay alipay_record.csv -p
 ```
 
 ### Web 模式
@@ -143,4 +146,4 @@ beango/
 微信 Excel       ──→ 清洗 ──→ 行解析   ──→ TransWechat ──→ .bean 文件
 ```
 
-转换后的 `.bean` 文件输出到 `outputFolder` 配置目录（默认 `./test/out`），按 `年份/月份/` 目录结构组织，可直接被 Beancount 主文件 `include`。
+转换后的 `.bean` 文件输出到 `outputFolder` 配置目录（默认 `./test/out`），按 `年份/月份/` 目录结构组织，可直接被 Beancount 主文件 `include`。每条交易带 `bill:`（alipay/wechat）来源标记，转账/还款条目带 `chain:` 资金链路元数据，未匹配账户兜底为 `Equity:Uncategorized` 并标 `!`；`-p/--pass` 可强制全部标 `*`。原始账单归档在 `outputFolder/raw/<来源>/<日期>/` 下，便于回放与对账。

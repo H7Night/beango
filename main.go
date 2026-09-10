@@ -23,15 +23,15 @@ var errHelp = errors.New("help requested")
 // "beango -type alipay file.csv -output ./out -merge" 中
 // -output/-merge 失效，因此这里自行解析。
 // 支持 "-flag value" 与 "-flag=value" 两种写法。
-func parseArgs(raw []string) (sourceType, outputDir string, merge bool, args []string, err error) {
+func parseArgs(raw []string) (sourceType, outputDir string, merge, passAll bool, args []string, err error) {
 	for i := 0; i < len(raw); i++ {
 		arg := raw[i]
 		switch {
 		case arg == "-h" || arg == "-help" || arg == "--help":
-			return "", "", false, nil, errHelp
+			return "", "", false, false, nil, errHelp
 		case arg == "-type" || arg == "--type":
 			if i+1 >= len(raw) {
-				return "", "", false, nil, fmt.Errorf("选项 %s 缺少参数", arg)
+				return "", "", false, false, nil, fmt.Errorf("选项 %s 缺少参数", arg)
 			}
 			i++
 			sourceType = raw[i]
@@ -39,7 +39,7 @@ func parseArgs(raw []string) (sourceType, outputDir string, merge bool, args []s
 			sourceType = strings.TrimPrefix(arg, "-type=")
 		case arg == "-output" || arg == "--output":
 			if i+1 >= len(raw) {
-				return "", "", false, nil, fmt.Errorf("选项 %s 缺少参数", arg)
+				return "", "", false, false, nil, fmt.Errorf("选项 %s 缺少参数", arg)
 			}
 			i++
 			outputDir = raw[i]
@@ -47,13 +47,15 @@ func parseArgs(raw []string) (sourceType, outputDir string, merge bool, args []s
 			outputDir = strings.TrimPrefix(arg, "-output=")
 		case arg == "-merge" || arg == "--merge":
 			merge = true
+		case arg == "-p" || arg == "--pass":
+			passAll = true
 		case strings.HasPrefix(arg, "-"):
-			return "", "", false, nil, fmt.Errorf("未知选项: %s", arg)
+			return "", "", false, false, nil, fmt.Errorf("未知选项: %s", arg)
 		default:
 			args = append(args, arg)
 		}
 	}
-	return sourceType, outputDir, merge, args, nil
+	return sourceType, outputDir, merge, passAll, args, nil
 }
 
 func usage() {
@@ -62,11 +64,12 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  -type string\n    \t账单类型: alipay 或 wechat\n")
 	fmt.Fprintf(os.Stderr, "  -output string\n    \t输出目录 (默认: ./test/out)\n")
 	fmt.Fprintf(os.Stderr, "  -merge\n    \t合并模式：追加到已有 bean 文件\n")
+	fmt.Fprintf(os.Stderr, "  -p, --pass\n    \t全量确认：所有条目标记为已确认 (*)\n")
 }
 
 func main() {
 	// CLI 参数（flag 与位置参数可任意顺序）
-	sourceType, outputDir, merge, args, err := parseArgs(os.Args[1:])
+	sourceType, outputDir, merge, passAll, args, err := parseArgs(os.Args[1:])
 	if err != nil {
 		if errors.Is(err, errHelp) {
 			usage()
@@ -86,7 +89,7 @@ func main() {
 		}
 		filePath := args[0]
 
-		if err := service.RunCLI(sourceType, filePath, outputDir, merge); err != nil {
+		if err := service.RunCLI(sourceType, filePath, outputDir, merge, passAll); err != nil {
 			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
 			os.Exit(1)
 		}

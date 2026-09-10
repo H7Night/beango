@@ -9,6 +9,7 @@ func TestParseArgs(t *testing.T) {
 		wantType   string
 		wantOutput string
 		wantMerge  bool
+		wantPass   bool
 		wantArgs   []string
 		wantErr    bool
 	}{
@@ -44,19 +45,26 @@ func TestParseArgs(t *testing.T) {
 			wantArgs:   []string{"f.csv"},
 		},
 		{
-			name:      "no flags",
-			raw:       []string{},
-			wantArgs:  []string{},
+			name:     "no flags",
+			raw:      []string{},
+			wantArgs: []string{},
 		},
 		{
-			name:      "missing value",
-			raw:       []string{"-type"},
-			wantErr:   true,
+			name:    "missing value",
+			raw:     []string{"-type"},
+			wantErr: true,
 		},
 		{
 			name:    "unknown flag",
 			raw:     []string{"-badopt"},
 			wantErr: true,
+		},
+		{
+			name:     "pass flag",
+			raw:      []string{"-type", "alipay", "-p", "file.csv"},
+			wantType: "alipay",
+			wantPass: true,
+			wantArgs: []string{"file.csv"},
 		},
 		{
 			name:    "help",
@@ -66,16 +74,16 @@ func TestParseArgs(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			gotType, gotOutput, gotMerge, gotArgs, err := parseArgs(c.raw)
+			gotType, gotOutput, gotMerge, gotPass, gotArgs, err := parseArgs(c.raw)
 			if c.wantErr != (err != nil) {
 				t.Fatalf("parseArgs(%v) err = %v, wantErr = %v", c.raw, err, c.wantErr)
 			}
 			if err != nil {
 				return
 			}
-			if gotType != c.wantType || gotOutput != c.wantOutput || gotMerge != c.wantMerge {
-				t.Fatalf("parseArgs(%v) = (%q, %q, %v), want (%q, %q, %v)",
-					c.raw, gotType, gotOutput, gotMerge, c.wantType, c.wantOutput, c.wantMerge)
+			if gotType != c.wantType || gotOutput != c.wantOutput || gotMerge != c.wantMerge || gotPass != c.wantPass {
+				t.Fatalf("parseArgs(%v) = (%q, %q, %v, %v), want (%q, %q, %v, %v)",
+					c.raw, gotType, gotOutput, gotMerge, gotPass, c.wantType, c.wantOutput, c.wantMerge, c.wantPass)
 			}
 			if len(gotArgs) != len(c.wantArgs) {
 				t.Fatalf("parseArgs(%v) args = %v, want %v", c.raw, gotArgs, c.wantArgs)

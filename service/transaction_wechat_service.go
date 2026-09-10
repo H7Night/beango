@@ -195,12 +195,34 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		commodityNote = record.Commodity + record.Notes
 	}
 
+	flag := "*"
+	switch record.TransactionType {
+	case "支出":
+		if expenseAccount == defaultExpense || assetAccount == defaultAsset {
+			flag = "!"
+		}
+	case "收入":
+		if incomeAccount == defaultIncome || assetAccount == defaultAsset {
+			flag = "!"
+		}
+	case "转账":
+		if toAccount == defaultAsset || fromAccount == defaultAsset {
+			flag = "!"
+		}
+	default:
+		flag = "!"
+	}
+	if passAllFlag {
+		flag = "*"
+	}
+
 	// 生成 Beancount 条目
 	var entryBuilder strings.Builder
-	entryBuilder.WriteString(fmt.Sprintf("%s * \"%s\" \"%s\"\n", date, record.Counterparty, commodityNote))
+	entryBuilder.WriteString(fmt.Sprintf("%s %s \"%s\" \"%s\"\n", date, flag, record.Counterparty, commodityNote))
 	entryBuilder.WriteString(fmt.Sprintf("    time: \"%s\"\n", time))
 	entryBuilder.WriteString(fmt.Sprintf("    uuid: \"%s\"\n", record.UUID))
 	entryBuilder.WriteString(fmt.Sprintf("    status: \"%s\"\n", record.TransactionStatus))
+	entryBuilder.WriteString(fmt.Sprintf("    bill: \"%s\"\n", record.Source))
 
 	switch record.TransactionType {
 	case "支出":
@@ -215,13 +237,14 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 		utils.LogConvert("success", record)
 	case "转账":
 		count[2]++
+		entryBuilder.WriteString(fmt.Sprintf("    chain: \"%s => %s\"\n", fromAccount, toAccount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		utils.LogConvert("success", record)
 	default:
 		count[3]++
-		entryBuilder.WriteString(fmt.Sprintf("    undefined    %.2f CNY\n", amount))
-		entryBuilder.WriteString(fmt.Sprintf("    undefined   -%.2f CNY\n", amount))
+		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized    %.2f CNY\n", amount))
+		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized   -%.2f CNY\n", amount))
 		utils.LogConvert("undefined", record)
 	}
 
