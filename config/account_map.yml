@@ -113,6 +113,21 @@ account_maps:
   Steam:
     account: Expenses:Entertainment:Games
     type: expense
+  萨莉亚:
+    account: Expenses:Food:Dinner
+    type: expense
+  发记猪杂粥:
+    account: Expenses:Food:Dinner
+    type: expense
+  飯溏:
+    account: Expenses:Food:Dinner
+    type: expense
+  花好蜜甜:
+    account: Expenses:Food:Snack
+    type: expense
+  万达广场停车场:
+    account: Expenses:Transport:Car:Parking
+    type: expense
   THE GUNDAM BASE:
     account: Expenses:Shopping:Collectibles
     type: expense
@@ -181,6 +196,12 @@ account_maps:
     type: expense
   首艺造型:
     account: Expenses:Home:Grooming
+    type: expense
+  卡卡纯剪:
+    account: Expenses:Home:Grooming
+    type: expense
+  Anomaly:
+    account: Expenses:Education:Developer
     type: expense
   驾驶证:
     account: Expenses:Other
