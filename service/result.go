@@ -1,5 +1,10 @@
 package service
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Diagnostic 记录导入过程中被跳过的异常行，便于人工核查。
 // Row 是「清洗后」记录序列的下标（含表头，1-based），非原始文件行号。
 type Diagnostic struct {
@@ -28,4 +33,17 @@ func bucketOf(transactionType string) int {
 	default:
 		return 3
 	}
+}
+
+// formatDiagnostics 把诊断渲染为可读文本，无可诊断时返回空串。
+func formatDiagnostics(diags []Diagnostic) string {
+	if len(diags) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n=== 异常行 (%d) ===\n", len(diags))
+	for _, d := range diags {
+		fmt.Fprintf(&b, "[%s] 行 %d: %s\n", d.Source, d.Row, d.Reason)
+	}
+	return b.String()
 }

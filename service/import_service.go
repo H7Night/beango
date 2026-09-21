@@ -91,6 +91,8 @@ func ImportAlipayCSV(c *gin.Context) {
 		"transsCount": res.Count[2],
 		"undefiCount": res.Count[3],
 		"skipedCount": res.Count[4],
+		"errorCount":  len(res.Diagnostics),
+		"diagnostics": res.Diagnostics,
 	})
 
 }
@@ -198,6 +200,8 @@ func ImportWechatCSV(c *gin.Context) {
 		"transsCount": res.Count[2],
 		"undefiCount": res.Count[3],
 		"skipedCount": res.Count[4],
+		"errorCount":  len(res.Diagnostics),
+		"diagnostics": res.Diagnostics,
 	})
 
 }

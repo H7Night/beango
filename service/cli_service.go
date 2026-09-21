@@ -70,6 +70,10 @@ func RunCLI(sourceType, filePath, outputDir string, merge, passAll bool) error {
 		res.Count[0], res.Count[1], res.Count[2], res.Count[3], res.Count[4])
 	fmt.Printf("输出目录: %s\n", outDir)
 
+	if s := formatDiagnostics(res.Diagnostics); s != "" {
+		fmt.Fprint(os.Stderr, s)
+	}
+
 	return nil
 }
 
