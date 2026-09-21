@@ -10,20 +10,18 @@ import (
 	"strings"
 )
 
-func TransAlipay(records [][]string) ([]string, [5]int, error) {
-	var result []string
-	// 重置计数器
-	count = [5]int{0, 0, 0, 0}
+func TransAlipay(records [][]string, passAll bool) (*TransResult, error) {
+	res := &TransResult{}
 	// 校验支付宝格式：表头行 + 至少 1 条交易记录。
 	// 不能用固定行数阈值（如 >24），否则 2-3 天的短账单（十几条记录）会被误判为格式错误。
 	if len(records) < 2 {
 		log.Println("导入文件不符合支付宝格式")
-		return nil, [5]int{}, errors.New("导入文件不符合支付宝格式")
+		return nil, errors.New("导入文件不符合支付宝格式")
 	}
 	// 校验表头特征（首行应包含"交易时间"列），避免误传其他格式文件
 	if !strings.Contains(records[0][0], "交易时间") {
 		log.Println("导入文件不符合支付宝格式")
-		return nil, [5]int{}, errors.New("导入文件不符合支付宝格式")
+		return nil, errors.New("导入文件不符合支付宝格式")
 	}
 outerLoop:
 	for _, row := range records[1:] {
@@ -53,7 +51,7 @@ outerLoop:
 			for keyword, mapType := range commodityMap {
 				if strings.Contains(commodity, keyword) {
 					if mapType == "skip" {
-						count[4]++
+						res.Count[4]++
 						utils.LogConvert("skip", row)
 						continue outerLoop //不记录该数据
 					}
@@ -105,13 +103,15 @@ outerLoop:
 			Source:            "alipay",
 		}
 
-		entry := formatAlipayTransactionEntry(record)
-		result = append(result, entry)
+		amt, _ := strconv.ParseFloat(record.Amount, 64)
+		entry := formatAlipayTransactionEntry(record, amt, passAll)
+		res.Entries = append(res.Entries, entry)
+		res.Count[bucketOf(record.TransactionType)]++
 	}
-	return result, count, nil
+	return res, nil
 }
 
-func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
+func formatAlipayTransactionEntry(record model.BeancountTransaction, amount float64, passAll bool) string {
 
 	accountMap := model.GetAccountMap()
 	// 默认账户（由配置决定，未匹配时兜底）
@@ -224,7 +224,6 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 
 	date := strings.Split(record.TransactionTime, " ")[0]
 	time := strings.Split(record.TransactionTime, " ")[1]
-	amount, _ := strconv.ParseFloat(record.Amount, 64)
 	commodity := record.Commodity
 
 	flag := "*"
@@ -244,7 +243,7 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 	default:
 		flag = "!"
 	}
-	if passAllFlag {
+	if passAll {
 		flag = "*"
 	}
 
@@ -258,23 +257,19 @@ func formatAlipayTransactionEntry(record model.BeancountTransaction) string {
 
 	switch record.TransactionType {
 	case "支出":
-		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
 		utils.LogConvert("success", record)
 	case "收入":
-		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		utils.LogConvert("success", record)
 	case "转账":
-		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    chain: \"%s => %s\"\n", fromAccount, toAccount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		utils.LogConvert("success", record)
 	default: // 无法解析的数据
-		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized   -%.2f CNY\n", amount))
 		utils.LogConvert("undefined", record)

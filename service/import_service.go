@@ -16,12 +16,8 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-var count = [5]int{0, 0, 0, 0, 0} //支出、收入、转账、undefined、不记录
-
 // ImportAlipayCSV 导入 支付宝 账单
 func ImportAlipayCSV(c *gin.Context) {
-	passAllFlag = false
-
 	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
@@ -73,7 +69,7 @@ func ImportAlipayCSV(c *gin.Context) {
 		records = append(records, row)
 	}
 
-	res, count, err := TransAlipay(records)
+	res, err := TransAlipay(records, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -84,25 +80,23 @@ func ImportAlipayCSV(c *gin.Context) {
 	if _, err := utils.ArchiveRawFile("alipay", utils.ConvertAlipayPath(), outputFolder); err != nil {
 		log.Printf("警告: 归档原始账单失败: %v", err)
 	}
-	if err := TransToBeancount(res, outputFolder, true); err != nil {
+	if err := TransToBeancount(res.Entries, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"expensCount": count[0],
-		"incomeCount": count[1],
-		"transsCount": count[2],
-		"undefiCount": count[3],
-		"skipedCount": count[4],
+		"expensCount": res.Count[0],
+		"incomeCount": res.Count[1],
+		"transsCount": res.Count[2],
+		"undefiCount": res.Count[3],
+		"skipedCount": res.Count[4],
 	})
 
 }
 
 // ImportWechatCSV 导入 微信 账单
 func ImportWechatCSV(c *gin.Context) {
-	passAllFlag = false
-
 	if err := utils.InitOutputDir(); err != nil { // Updated
 		return
 	}
@@ -183,7 +177,7 @@ func ImportWechatCSV(c *gin.Context) {
 	for _, row := range finalRows {
 		records = append(records, row)
 	}
-	res, count, err := TransWechat(records)
+	res, err := TransWechat(records, false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -193,17 +187,17 @@ func ImportWechatCSV(c *gin.Context) {
 	if _, err := utils.ArchiveRawFile("wechat", utils.ConvertWechatPath(), outputFolder); err != nil {
 		log.Printf("警告: 归档原始账单失败: %v", err)
 	}
-	if err := TransToBeancount(res, outputFolder, true); err != nil {
+	if err := TransToBeancount(res.Entries, outputFolder, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "转换beancount失败: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"expensCount": count[0],
-		"incomeCount": count[1],
-		"transsCount": count[2],
-		"undefiCount": count[3],
-		"skipedCount": count[4],
+		"expensCount": res.Count[0],
+		"incomeCount": res.Count[1],
+		"transsCount": res.Count[2],
+		"undefiCount": res.Count[3],
+		"skipedCount": res.Count[4],
 	})
 
 }

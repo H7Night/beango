@@ -50,18 +50,18 @@ func TestTransAlipayRepayment(t *testing.T) {
 		records = append(records, alipayRepaymentRow())
 	}
 
-	entries, count, err := TransAlipay(records)
+	res, err := TransAlipay(records, false)
 	if err != nil {
 		t.Fatalf("TransAlipay 失败: %v", err)
 	}
-	if len(entries) != 24 {
-		t.Fatalf("期望 24 条记录，实际 %d", len(entries))
+	if len(res.Entries) != 24 {
+		t.Fatalf("期望 24 条记录，实际 %d", len(res.Entries))
 	}
-	if count[2] != 24 {
-		t.Fatalf("期望 24 笔转账，实际 %d", count[2])
+	if res.Count[2] != 24 {
+		t.Fatalf("期望 24 笔转账，实际 %d", res.Count[2])
 	}
 
-	entry := entries[0]
+	entry := res.Entries[0]
 	if !strings.Contains(entry, "Liabilities:CMBCreditCard:2035") {
 		t.Errorf("还款目标应为 Liabilities:CMBCreditCard:2035，实际:\n%s", entry)
 	}
@@ -87,15 +87,15 @@ func TestTransAlipayMatchedFlag(t *testing.T) {
 	records = append(records, alipayHeaderRow())
 	records = append(records, alipayRepaymentRow())
 
-	entries, _, err := TransAlipay(records)
+	res, err := TransAlipay(records, false)
 	if err != nil {
 		t.Fatalf("TransAlipay 失败: %v", err)
 	}
-	if len(entries) != 1 {
-		t.Fatalf("期望 1 条记录，实际 %d", len(entries))
+	if len(res.Entries) != 1 {
+		t.Fatalf("期望 1 条记录，实际 %d", len(res.Entries))
 	}
 
-	entry := entries[0]
+	entry := res.Entries[0]
 	if !strings.Contains(entry, " * \"") {
 		t.Errorf("两端均匹配的条目应标记为已确认 *，实际:\n%s", entry)
 	}
@@ -136,15 +136,15 @@ func TestTransAlipayUnmatchedFlag(t *testing.T) {
 	records = append(records, alipayHeaderRow())
 	records = append(records, unmatchedRow)
 
-	entries, _, err := TransAlipay(records)
+	res, err := TransAlipay(records, false)
 	if err != nil {
 		t.Fatalf("TransAlipay 失败: %v", err)
 	}
-	if len(entries) != 1 {
-		t.Fatalf("期望 1 条记录，实际 %d", len(entries))
+	if len(res.Entries) != 1 {
+		t.Fatalf("期望 1 条记录，实际 %d", len(res.Entries))
 	}
 
-	entry := entries[0]
+	entry := res.Entries[0]
 	if !strings.Contains(entry, " ! \"") {
 		t.Errorf("未匹配的条目应标记为待审核 !，实际:\n%s", entry)
 	}

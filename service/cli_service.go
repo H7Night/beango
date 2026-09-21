@@ -22,8 +22,6 @@ import (
 // merge: 是否合并模式
 // passAll: 是否全量确认（所有条目标记 *)
 func RunCLI(sourceType, filePath, outputDir string, merge, passAll bool) error {
-	passAllFlag = passAll
-
 	// 1. 加载 account_map
 	if err := model.LoadAccountMap(); err != nil {
 		return fmt.Errorf("加载账户映射失败: %w", err)
@@ -35,15 +33,14 @@ func RunCLI(sourceType, filePath, outputDir string, merge, passAll bool) error {
 	}
 
 	// 3. 解析文件
-	var entries []string
-	var count [5]int
+	var res *TransResult
 	var err error
 
 	switch sourceType {
 	case "alipay":
-		entries, count, err = parseAlipayFile(filePath)
+		res, err = parseAlipayFile(filePath, passAll)
 	case "wechat":
-		entries, count, err = parseWechatFile(filePath)
+		res, err = parseWechatFile(filePath, passAll)
 	default:
 		return fmt.Errorf("不支持的类型: %s（仅支持 alipay 或 wechat）", sourceType)
 	}
@@ -63,30 +60,30 @@ func RunCLI(sourceType, filePath, outputDir string, merge, passAll bool) error {
 	}
 
 	// 6. 转换并输出
-	if err := TransToBeancount(entries, outDir, merge); err != nil {
+	if err := TransToBeancount(res.Entries, outDir, merge); err != nil {
 		return fmt.Errorf("转换 beancount 失败: %w", err)
 	}
 
 	// 7. 输出统计
 	fmt.Printf("\n=== 转换完成 ===\n")
 	fmt.Printf("支出: %d  收入: %d  转账: %d  未识别: %d  跳过: %d\n",
-		count[0], count[1], count[2], count[3], count[4])
+		res.Count[0], res.Count[1], res.Count[2], res.Count[3], res.Count[4])
 	fmt.Printf("输出目录: %s\n", outDir)
 
 	return nil
 }
 
 // parseAlipayFile 解析支付宝 CSV 文件（GBK → UTF8 → CSV rows → TransAlipay）
-func parseAlipayFile(filePath string) ([]string, [5]int, error) {
+func parseAlipayFile(filePath string, passAll bool) (*TransResult, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, [5]int{}, fmt.Errorf("打开文件失败: %w", err)
+		return nil, fmt.Errorf("打开文件失败: %w", err)
 	}
 	defer file.Close()
 
 	content, err := utils.ConvertGBKtoUTF8withBom(file)
 	if err != nil {
-		return nil, [5]int{}, fmt.Errorf("GBK 转换失败: %w", err)
+		return nil, fmt.Errorf("GBK 转换失败: %w", err)
 	}
 
 	reader := csv.NewReader(bufio.NewReader(bytes.NewReader(content)))
@@ -108,20 +105,20 @@ func parseAlipayFile(filePath string) ([]string, [5]int, error) {
 		records = append(records, row)
 	}
 
-	return TransAlipay(records)
+	return TransAlipay(records, passAll)
 }
 
 // parseWechatFile 解析微信 Excel 文件（清洗 → TransWechat）
-func parseWechatFile(filePath string) ([]string, [5]int, error) {
+func parseWechatFile(filePath string, passAll bool) (*TransResult, error) {
 	srcExcel, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return nil, [5]int{}, fmt.Errorf("打开 Excel 失败: %w", err)
+		return nil, fmt.Errorf("打开 Excel 失败: %w", err)
 	}
 
 	sheetName := srcExcel.GetSheetName(0)
 	rows, err := srcExcel.GetRows(sheetName)
 	if err != nil {
-		return nil, [5]int{}, fmt.Errorf("读取工作表失败: %w", err)
+		return nil, fmt.Errorf("读取工作表失败: %w", err)
 	}
 
 	// 清洗数据
@@ -142,5 +139,5 @@ func parseWechatFile(filePath string) ([]string, [5]int, error) {
 		cleanRows = append(cleanRows, cleanRow)
 	}
 
-	return TransWechat(cleanRows)
+	return TransWechat(cleanRows, passAll)
 }

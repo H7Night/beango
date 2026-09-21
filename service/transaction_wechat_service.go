@@ -9,26 +9,23 @@ import (
 	"strings"
 )
 
-func TransWechat(records [][]string) ([]string, [5]int, error) {
-	var result []string
-	// 重置计数器
-	count = [5]int{0, 0, 0, 0, 0}
-	//if len(records) < 16 {
-	//	return nil, [5]int{}, errors.New("导入文件不符合微信格式")
-	//}
+func TransWechat(records [][]string, passAll bool) (*TransResult, error) {
+	res := &TransResult{}
 
 	for _, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
-			count[4]++
+			res.Count[4]++
 			utils.LogConvert("skip", row)
 			continue
 		}
 
-		entry := formatWechatTransactionEntry(record)
-		result = append(result, entry)
+		amount, _ := strconv.ParseFloat(record.Amount, 64)
+		entry := formatWechatTransactionEntry(record, amount, passAll)
+		res.Entries = append(res.Entries, entry)
+		res.Count[bucketOf(record.TransactionType)]++
 	}
-	return result, count, nil
+	return res, nil
 }
 
 func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
@@ -100,7 +97,7 @@ func parseWechatRow(row []string) (model.BeancountTransaction, bool) {
 	}, false
 }
 
-func formatWechatTransactionEntry(record model.BeancountTransaction) string {
+func formatWechatTransactionEntry(record model.BeancountTransaction, amount float64, passAll bool) string {
 	accountMap := model.GetAccountMap()
 	// 默认账户（由配置决定，未匹配时兜底）
 	defaultExpense := model.DefaultExpenseAccount()
@@ -184,9 +181,6 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	date := strings.Split(record.TransactionTime, " ")[0]
 	time := strings.Split(record.TransactionTime, " ")[1]
 
-	// 金额
-	amount, _ := strconv.ParseFloat(record.Amount, 64)
-
 	// 描述信息
 	var commodityNote string
 	if record.Notes == "/" || record.Notes == "" {
@@ -212,7 +206,7 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 	default:
 		flag = "!"
 	}
-	if passAllFlag {
+	if passAll {
 		flag = "*"
 	}
 
@@ -226,23 +220,19 @@ func formatWechatTransactionEntry(record model.BeancountTransaction) string {
 
 	switch record.TransactionType {
 	case "支出":
-		count[0]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", expenseAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", assetAccount, amount))
 		utils.LogConvert("success", record)
 	case "收入":
-		count[1]++
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", assetAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", incomeAccount, amount))
 		utils.LogConvert("success", record)
 	case "转账":
-		count[2]++
 		entryBuilder.WriteString(fmt.Sprintf("    chain: \"%s => %s\"\n", fromAccount, toAccount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s    %.2f CNY\n", toAccount, amount))
 		entryBuilder.WriteString(fmt.Sprintf("    %s   -%.2f CNY\n", fromAccount, amount))
 		utils.LogConvert("success", record)
 	default:
-		count[3]++
 		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized    %.2f CNY\n", amount))
 		entryBuilder.WriteString(fmt.Sprintf("    Equity:Uncategorized   -%.2f CNY\n", amount))
 		utils.LogConvert("undefined", record)

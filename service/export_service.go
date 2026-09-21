@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var passAllFlag = false
-
 var uuidLineRe = regexp.MustCompile(`uuid:\s*"([^"]+)"`)
 
 // extractUUID 从一条 beancount 条目中提取 uuid 元数据值，没有则返回空串
