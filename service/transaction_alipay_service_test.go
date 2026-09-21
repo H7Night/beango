@@ -152,3 +152,45 @@ func TestTransAlipayUnmatchedFlag(t *testing.T) {
 		t.Errorf("未匹配账户应兜底为 Equity:Uncategorized，实际:\n%s", entry)
 	}
 }
+
+func chdirRepoRoot(t *testing.T) {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(".."); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+}
+
+func TestTransAlipayInvalidAmountSkipped(t *testing.T) {
+	chdirRepoRoot(t)
+
+	good := alipayRepaymentRow()
+	bad := alipayRepaymentRow()
+	bad[6] = "abc" // 金额列
+	bad[9] = "20260805BADAMOUNT0001"
+
+	records := [][]string{alipayHeaderRow(), good, bad}
+	res, err := TransAlipay(records, false)
+	if err != nil {
+		t.Fatalf("TransAlipay 失败: %v", err)
+	}
+	if len(res.Entries) != 1 {
+		t.Fatalf("期望 1 条有效条目，实际 %d", len(res.Entries))
+	}
+	if len(res.Diagnostics) != 1 {
+		t.Fatalf("期望 1 条诊断，实际 %d", len(res.Diagnostics))
+	}
+	if res.Diagnostics[0].Row != 3 {
+		t.Errorf("期望 Row=3，实际 %d", res.Diagnostics[0].Row)
+	}
+	if !strings.Contains(res.Diagnostics[0].Reason, "abc") {
+		t.Errorf("诊断原因应含原值，实际 %q", res.Diagnostics[0].Reason)
+	}
+	if res.Diagnostics[0].Source != "alipay" {
+		t.Errorf("Source 应为 alipay，实际 %q", res.Diagnostics[0].Source)
+	}
+}

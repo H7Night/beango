@@ -24,7 +24,7 @@ func TransAlipay(records [][]string, passAll bool) (*TransResult, error) {
 		return nil, errors.New("导入文件不符合支付宝格式")
 	}
 outerLoop:
-	for _, row := range records[1:] {
+	for i, row := range records[1:] {
 		// 前12行为不必要数据
 		if len(row) < 12 {
 			continue
@@ -103,7 +103,16 @@ outerLoop:
 			Source:            "alipay",
 		}
 
-		amt, _ := strconv.ParseFloat(record.Amount, 64)
+		amt, perr := strconv.ParseFloat(record.Amount, 64)
+		if perr != nil {
+			res.Diagnostics = append(res.Diagnostics, Diagnostic{
+				Source: "alipay",
+				Row:    i + 2,
+				Reason: fmt.Sprintf("金额无法解析: %q", record.Amount),
+				Raw:    row,
+			})
+			continue
+		}
 		entry := formatAlipayTransactionEntry(record, amt, passAll)
 		res.Entries = append(res.Entries, entry)
 		res.Count[bucketOf(record.TransactionType)]++

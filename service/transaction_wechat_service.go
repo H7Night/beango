@@ -12,7 +12,7 @@ import (
 func TransWechat(records [][]string, passAll bool) (*TransResult, error) {
 	res := &TransResult{}
 
-	for _, row := range records[1:] {
+	for i, row := range records[1:] {
 		record, skip := parseWechatRow(row)
 		if skip {
 			res.Count[4]++
@@ -20,7 +20,16 @@ func TransWechat(records [][]string, passAll bool) (*TransResult, error) {
 			continue
 		}
 
-		amount, _ := strconv.ParseFloat(record.Amount, 64)
+		amount, perr := strconv.ParseFloat(record.Amount, 64)
+		if perr != nil {
+			res.Diagnostics = append(res.Diagnostics, Diagnostic{
+				Source: "wechat",
+				Row:    i + 2,
+				Reason: fmt.Sprintf("金额无法解析: %q", record.Amount),
+				Raw:    row,
+			})
+			continue
+		}
 		entry := formatWechatTransactionEntry(record, amount, passAll)
 		res.Entries = append(res.Entries, entry)
 		res.Count[bucketOf(record.TransactionType)]++
