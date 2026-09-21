@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sort"
+	"unicode/utf8"
 )
 
 // accountMapPath 账户映射文件路径（由 beango.yml 的 configFolder/accountMapFile 决定）
@@ -59,7 +61,24 @@ func mapToSlice(m map[string]AccountMapEntry) []AccountMap {
 			Type:    entry.Type,
 		})
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Keyword < result[j].Keyword })
 	return result
+}
+
+// SortBySpecificity 返回按关键词长度降序（同长按关键词升序）排序的副本，
+// 使匹配时更具体的关键词优先，且结果确定。
+func SortBySpecificity(m []AccountMap) []AccountMap {
+	out := make([]AccountMap, len(m))
+	copy(out, m)
+	sort.SliceStable(out, func(i, j int) bool {
+		li := utf8.RuneCountInString(out[i].Keyword)
+		lj := utf8.RuneCountInString(out[j].Keyword)
+		if li != lj {
+			return li > lj
+		}
+		return out[i].Keyword < out[j].Keyword
+	})
+	return out
 }
 
 // LoadAccountMap 加载账户映射到缓存
@@ -83,7 +102,7 @@ func GetAccountMap() []AccountMap {
 	if !accountMapsLoaded {
 		_ = LoadAccountMap()
 	}
-	return accountMapsCache
+	return SortBySpecificity(accountMapsCache)
 }
 
 // CreateAccountMap 创建账户映射
