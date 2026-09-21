@@ -41,3 +41,30 @@ func TestTransWechatInvalidAmountSkipped(t *testing.T) {
 		t.Errorf("诊断原因应含原值，实际 %q", res.Diagnostics[0].Reason)
 	}
 }
+
+func TestTransWechatRejectsMissingHeader(t *testing.T) {
+	chdirRepoRoot(t)
+	records := [][]string{{"foo", "bar"}, {"a", "b"}}
+	_, err := TransWechat(records, false)
+	if err == nil || !strings.Contains(err.Error(), "导入文件不符合微信格式") {
+		t.Fatalf("期望微信格式错误，实际 %v", err)
+	}
+}
+
+func TestTransWechatRejectsShortInput(t *testing.T) {
+	chdirRepoRoot(t)
+	if _, err := TransWechat([][]string{wechatHeaderRow()}, false); err == nil {
+		t.Fatal("仅表头应报错")
+	}
+}
+
+func TestTransWechatAcceptsHeader(t *testing.T) {
+	chdirRepoRoot(t)
+	res, err := TransWechat([][]string{wechatHeaderRow(), wechatRow("u1", "17")}, false)
+	if err != nil {
+		t.Fatalf("TransWechat 失败: %v", err)
+	}
+	if len(res.Entries) != 1 {
+		t.Fatalf("期望 1 条，实际 %d", len(res.Entries))
+	}
+}

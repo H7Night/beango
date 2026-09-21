@@ -3,6 +3,7 @@ package service
 import (
 	"beango/model"
 	"beango/utils"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -11,6 +12,16 @@ import (
 
 func TransWechat(records [][]string, passAll bool) (*TransResult, error) {
 	res := &TransResult{}
+
+	// 校验微信格式：表头行 + 至少 1 条交易记录；首行应包含"交易时间"列。
+	if len(records) < 2 {
+		log.Println("导入文件不符合微信格式")
+		return nil, errors.New("导入文件不符合微信格式")
+	}
+	if len(records[0]) == 0 || !strings.Contains(records[0][0], "交易时间") {
+		log.Println("导入文件不符合微信格式")
+		return nil, errors.New("导入文件不符合微信格式")
+	}
 
 	for i, row := range records[1:] {
 		record, skip := parseWechatRow(row)
