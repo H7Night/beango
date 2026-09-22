@@ -13,7 +13,7 @@
 
 ## Project
 - Go 1.24.2（module `beango`），入口 `main.go`：CLI 转换（flag 与位置参数任意顺序）或 Web 服务（gin，默认端口 10777）
-- 配置（YAML，`config/`）：`beango.yml`（输出目录/端口/兜底账户）、`account_map.yml`（关键词→Beancount 账户）、`commodity_map.yml`（商品→支出/收入/跳过）
+- 配置（YAML，`config/`）：`beango.yml`（输出目录/端口/兜底账户，引导路径优先 `config/beango.yml`、回退 `./beango.yml`）、`account_map.yml`（关键词→Beancount 账户）、`commodity_map.yml`（商品→支出/收入/跳过）
 - 输出：`test/out/<运行日期>/<年份>/<0-default|1-securities>/<月>.bean`（按年月分组，交易按时序倒序写）
 - 账本本体在独立仓库 `../beancount`（本目录 `beancount` 为符号链接），`main.bean` 按年份 include；校验用其 `.venv` 里的 beancount
 

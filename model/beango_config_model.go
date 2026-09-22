@@ -2,16 +2,33 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
 )
 
-// beangoConfigPath 引导配置文件路径。
-// beango.yml 是全局配置的入口，其自身路径无法从配置中读取，故保留为常量；
+// 引导配置文件候选路径（按顺序探测）：
+//  1. config/beango.yml —— beango 项目内默认位置
+//  2. beango.yml        —— 当前工作目录，便于独立分发的可执行文件就地读取配置
+// beango.yml 是全局配置的入口，其自身路径无法从配置中读取，故在此解析；
 // 其余可配置项（配置文件目录、文件名、端口、目录等）均从 beango.yml 读取。
-const beangoConfigPath = "config/beango.yml"
+const (
+	beangoConfigPrimary  = "config/beango.yml"
+	beangoConfigFallback = "beango.yml"
+)
+
+// resolveBeangoConfigPath 按优先级返回实际存在的 beango.yml 路径。
+func resolveBeangoConfigPath() (string, error) {
+	if _, err := os.Stat(beangoConfigPrimary); err == nil {
+		return beangoConfigPrimary, nil
+	}
+	if _, err := os.Stat(beangoConfigFallback); err == nil {
+		return beangoConfigFallback, nil
+	}
+	return "", fmt.Errorf("未找到配置文件（已尝试 %s、%s）", beangoConfigPrimary, beangoConfigFallback)
+}
 
 // DefaultOutputFolder 输出根目录兜底值。
 // out 目录已迁移至 test/out，实际路径由配置 outputFolder 控制。
@@ -48,7 +65,11 @@ func loadBeangoConfig() (*beangoConfigFile, error) {
 	beangoCacheMu.RUnlock()
 
 	var bcf beangoConfigFile
-	if err := readYAML(beangoConfigPath, &bcf); err != nil {
+	path, err := resolveBeangoConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	if err := readYAML(path, &bcf); err != nil {
 		return nil, fmt.Errorf("读取配置失败: %w", err)
 	}
 	if bcf.Beango == nil {
@@ -63,7 +84,11 @@ func loadBeangoConfig() (*beangoConfigFile, error) {
 
 // saveBeangoConfig writes to beango.yml and invalidates the cache
 func saveBeangoConfig(bcf *beangoConfigFile) error {
-	if err := writeYAML(beangoConfigPath, bcf); err != nil {
+	path, err := resolveBeangoConfigPath()
+	if err != nil {
+		return err
+	}
+	if err := writeYAML(path, bcf); err != nil {
 		return err
 	}
 	beangoCacheMu.Lock()

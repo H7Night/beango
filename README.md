@@ -71,7 +71,7 @@ beango:
   defaultAssetAccount: "Assets:Other" # 未匹配资产/负债兜底账户
 ```
 
-> 说明：`beango.yml` 自身路径是引导入口，无法从自身读取，保留为内置常量；其余路径、端口、兜底账户均由配置驱动。
+> 说明：`beango.yml` 是引导配置，其路径按顺序探测——优先 `config/beango.yml`，找不到则回退当前目录的 `./beango.yml`（便于独立分发的可执行文件就地读取配置）；其余路径、端口、兜底账户均由该配置驱动。
 
 ## 开发
 
