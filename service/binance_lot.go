@@ -22,13 +22,15 @@ type LotBook struct {
 }
 
 type GeneratedPosting struct {
-	Account  string
-	Currency string
-	Units    decimal.Decimal
-	Cost     decimal.Decimal
-	Price    decimal.Decimal
-	HasCost  bool
-	HasPrice bool
+	Account       string
+	Currency      string
+	Units         decimal.Decimal
+	Cost          decimal.Decimal
+	CostCurrency  string
+	Price         decimal.Decimal
+	PriceCurrency string
+	HasCost       bool
+	HasPrice      bool
 }
 
 type GeneratedTransaction struct {
@@ -72,9 +74,9 @@ func ApplyFIFO(book *LotBook, event BinanceEvent) (GeneratedTransaction, []Binan
 		baseUnits := event.Quantity
 		if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
 			baseUnits = baseUnits.Sub(event.Fee)
-			txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: event.Fee, Cost: cost, HasCost: true})
+			txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: event.Fee, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
 		}
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: baseUnits, Cost: cost, HasCost: true})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: baseUnits, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
 		quoteAccount := cryptoAccount(event.QuoteAsset)
 		if event.EventType == "fiat_buy" && event.QuoteAsset == "CNY" {
 			quoteAccount = "Assets:Crypto"
@@ -122,7 +124,7 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 		if used.GreaterThan(remaining) {
 			used = remaining
 		}
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: used.Neg(), Cost: lot.Cost, Price: event.Price, HasCost: true, HasPrice: true})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: used.Neg(), Cost: lot.Cost, CostCurrency: lot.CostCurrency, Price: event.Price, PriceCurrency: event.QuoteAsset, HasCost: true, HasPrice: true})
 		remaining = remaining.Sub(used)
 		left := lot.Quantity.Sub(used)
 		if left.GreaterThan(decimal.Zero) {
@@ -157,7 +159,7 @@ func applyWithdrawalFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransac
 		if used.GreaterThan(remaining) {
 			used = remaining
 		}
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: used.Neg(), Cost: lot.Cost, HasCost: true})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: used.Neg(), Cost: lot.Cost, CostCurrency: lot.CostCurrency, HasCost: true})
 		remaining = remaining.Sub(used)
 		left := lot.Quantity.Sub(used)
 		if left.GreaterThan(decimal.Zero) {
