@@ -10,6 +10,7 @@ import (
 type BinanceEvent struct {
 	Source        string
 	EventID       string
+	OrderID       string
 	EventType     string
 	Symbol        string
 	BaseAsset     string

@@ -74,7 +74,7 @@ func ApplyFIFO(book *LotBook, event BinanceEvent) (GeneratedTransaction, []Binan
 		baseUnits := event.Quantity
 		if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
 			baseUnits = baseUnits.Sub(event.Fee)
-			txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: event.Fee, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
+			txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
 		}
 		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: baseUnits, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
 		quoteAccount := cryptoAccount(event.QuoteAsset)
@@ -101,6 +101,9 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 	remaining := event.Quantity
 	totalCost := decimal.Zero
 	for _, lot := range lots {
+		if lot.CostCurrency != "" && lot.CostCurrency != event.QuoteAsset {
+			return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 成本货币与卖出报价货币不一致，未自动换汇计算收益", Raw: rawEvent(event)}}, nil
+		}
 		if remaining.GreaterThan(lot.Quantity) {
 			totalCost = totalCost.Add(lot.Quantity.Mul(lot.Cost))
 			remaining = remaining.Sub(lot.Quantity)
@@ -113,7 +116,18 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 	if remaining.GreaterThan(decimal.Zero) {
 		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 库存不足，无法安全计算卖出成本", Raw: rawEvent(event)}}, nil
 	}
-	remaining = event.Quantity
+	requiredQuantity := event.Quantity
+	if event.FeeAsset == event.BaseAsset {
+		requiredQuantity = requiredQuantity.Add(event.Fee)
+	}
+	available := decimal.Zero
+	for _, lot := range lots {
+		available = available.Add(lot.Quantity)
+	}
+	if available.LessThan(requiredQuantity) {
+		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 库存不足以覆盖卖出手续费", Raw: rawEvent(event)}}, nil
+	}
+	remaining = requiredQuantity
 	var kept []Lot
 	for _, lot := range lots {
 		if remaining.IsZero() {
@@ -140,7 +154,9 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 	} else if gain.LessThan(decimal.Zero) {
 		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:CapitalLoss:Crypto", Currency: event.QuoteAsset, Units: gain.Abs()})
 	}
-	if !event.Fee.IsZero() {
+	if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee})
+	} else if !event.Fee.IsZero() {
 		txn.Postings = appendFeePostings(&txn, event)
 	}
 	return txn, nil, nil
@@ -149,6 +165,13 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 func applyWithdrawalFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) (GeneratedTransaction, []BinanceDiagnostic, error) {
 	lots := book.Accounts[event.BaseAsset]
 	remaining := event.Quantity.Add(event.Fee)
+	available := decimal.Zero
+	for _, lot := range lots {
+		available = available.Add(lot.Quantity)
+	}
+	if available.LessThan(remaining) {
+		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "提现数量和手续费超过 FIFO 库存", Raw: rawEvent(event)}}, nil
+	}
 	var kept []Lot
 	for _, lot := range lots {
 		if remaining.IsZero() {
@@ -165,9 +188,6 @@ func applyWithdrawalFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransac
 		if left.GreaterThan(decimal.Zero) {
 			kept = append(kept, Lot{Quantity: left, Cost: lot.Cost, CostCurrency: lot.CostCurrency, AcquiredAt: lot.AcquiredAt, SourceID: lot.SourceID})
 		}
-	}
-	if remaining.GreaterThan(decimal.Zero) {
-		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "提现数量和手续费超过 FIFO 库存", Raw: rawEvent(event)}}, nil
 	}
 	book.Accounts[event.BaseAsset] = kept
 	if !event.Fee.IsZero() {

@@ -84,19 +84,29 @@ func ParseBinanceZip(path string) (BinanceParseResult, error) {
 		return BinanceParseResult{}, fmt.Errorf("打开 Binance ZIP 失败: %w", err)
 	}
 	defer archive.Close()
+	result := BinanceParseResult{}
+	found := false
 	for _, file := range archive.File {
 		if file.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(file.Name), ".csv") {
 			continue
 		}
+		found = true
 		reader, err := file.Open()
 		if err != nil {
 			return BinanceParseResult{}, fmt.Errorf("读取 ZIP CSV 失败: %w", err)
 		}
-		result, parseErr := ParseBinanceCSV(reader, file.Name)
+		part, parseErr := ParseBinanceCSV(reader, file.Name)
 		_ = reader.Close()
-		return result, parseErr
+		if parseErr != nil {
+			return result, parseErr
+		}
+		result.Events = append(result.Events, part.Events...)
+		result.Diagnostics = append(result.Diagnostics, part.Diagnostics...)
 	}
-	return BinanceParseResult{}, fmt.Errorf("Binance ZIP 中没有 CSV 文件")
+	if !found {
+		return BinanceParseResult{}, fmt.Errorf("Binance ZIP 中没有 CSV 文件")
+	}
+	return result, nil
 }
 
 // ParseBinanceCSV 解析 Binance 现货订单历史；合约导出只返回诊断，不产生现货事件。
@@ -188,7 +198,7 @@ func parseBinanceSpotRows(reader *csv.Reader, header []string, sourceName string
 			continue
 		}
 		result.Events = append(result.Events, BinanceEvent{
-			Source: sourceName, EventID: strings.TrimSpace(row[1]), EventType: "spot_trade", Symbol: strings.ToUpper(strings.TrimSpace(row[2])),
+			Source: sourceName, EventID: strings.TrimSpace(row[1]), OrderID: strings.TrimSpace(row[1]), EventType: "spot_trade", Symbol: strings.ToUpper(strings.TrimSpace(row[2])),
 			BaseAsset: base, QuoteAsset: quote, Side: strings.ToLower(strings.TrimSpace(row[4])), Time: tradeTime,
 			Quantity: quantity, QuoteQuantity: quoteQuantity, Price: price, Fee: decimal.Zero, FeeAsset: "",
 			Raw: rawBinanceRow(header, row),

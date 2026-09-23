@@ -74,6 +74,9 @@ func TestFetchSpotTradesPaginatesAndPreservesFeeAsset(t *testing.T) {
 	if events[0].FeeAsset != "USDT" || events[1].FeeAsset != "BTC" {
 		t.Fatalf("fee assets=%q,%q", events[0].FeeAsset, events[1].FeeAsset)
 	}
+	if events[0].OrderID != "10" || events[1].OrderID != "11" {
+		t.Fatalf("order ids=%q,%q", events[0].OrderID, events[1].OrderID)
+	}
 }
 
 func timeFromMillis(value int64) time.Time {
@@ -98,16 +101,24 @@ func TestFetchDepositsMapsDepositEvent(t *testing.T) {
 		if r.URL.Path != "/sapi/v1/capital/deposit/hisrec" {
 			t.Fatalf("path=%s", r.URL.Path)
 		}
-		_, _ = io.WriteString(w, `[{"id":"deposit-1","amount":"1000","coin":"USDT","status":1,"insertTime":1760000000000,"txId":"tx-deposit-1"}]`)
+		if r.URL.Query().Get("offset") == "0" {
+			_, _ = io.WriteString(w, `[{"id":"deposit-1","amount":"1000","coin":"USDT","status":1,"insertTime":1760000000000,"txId":"tx-deposit-1"}]`)
+			return
+		}
+		if r.URL.Query().Get("offset") == "1" {
+			_, _ = io.WriteString(w, `[{"id":"deposit-2","amount":"500","coin":"BTC","status":1,"insertTime":1760000100000,"txId":"tx-deposit-2"}]`)
+			return
+		}
+		_, _ = io.WriteString(w, `[]`)
 	}))
 	defer server.Close()
-	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client()}
+	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client(), WalletPageSize: 1}
 	events, err := client.FetchDeposits(context.Background(), time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 1 || events[0].EventType != "deposit" || events[0].EventID != "tx-deposit-1" || events[0].BaseAsset != "USDT" {
-		t.Fatalf("events=%+v", events)
+	if len(events) != 2 || events[0].EventType != "deposit" || events[0].EventID != "tx-deposit-1" || events[0].BaseAsset != "USDT" {
+		t.Fatalf("分页 deposit events=%+v", events)
 	}
 }
 
@@ -116,16 +127,24 @@ func TestFetchWithdrawalsMapsFee(t *testing.T) {
 		if r.URL.Path != "/sapi/v1/capital/withdraw/history" {
 			t.Fatalf("path=%s", r.URL.Path)
 		}
-		_, _ = io.WriteString(w, `[{"id":"withdraw-1","amount":"0.01","transactionFee":"0.0001","coin":"BTC","applyTime":"2026-09-01 12:00:00","txId":"tx-withdraw-1"}]`)
+		if r.URL.Query().Get("offset") == "0" {
+			_, _ = io.WriteString(w, `[{"id":"withdraw-1","amount":"0.01","transactionFee":"0.0001","coin":"BTC","applyTime":"2026-09-01 12:00:00","txId":"tx-withdraw-1"}]`)
+			return
+		}
+		if r.URL.Query().Get("offset") == "1" {
+			_, _ = io.WriteString(w, `[{"id":"withdraw-2","amount":"0.02","transactionFee":"0.0002","coin":"ETH","applyTime":"2026-09-02 12:00:00","txId":"tx-withdraw-2"}]`)
+			return
+		}
+		_, _ = io.WriteString(w, `[]`)
 	}))
 	defer server.Close()
-	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client()}
+	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client(), WalletPageSize: 1}
 	events, err := client.FetchWithdrawals(context.Background(), time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 1 || events[0].EventType != "withdrawal" || events[0].FeeAsset != "BTC" || !events[0].Fee.Equal(decimal.RequireFromString("0.0001")) {
-		t.Fatalf("events=%+v", events)
+	if len(events) != 2 || events[0].EventType != "withdrawal" || events[0].FeeAsset != "BTC" || events[0].Time.IsZero() || !events[0].Fee.Equal(decimal.RequireFromString("0.0001")) {
+		t.Fatalf("分页 withdrawal events=%+v", events)
 	}
 }
 
@@ -134,15 +153,23 @@ func TestFetchFiatOrdersMapsC2CEvent(t *testing.T) {
 		if r.URL.Path != "/sapi/v1/fiat/orders" {
 			t.Fatalf("path=%s", r.URL.Path)
 		}
-		_, _ = io.WriteString(w, `{"data":[{"orderNo":"c2c-1","createTime":1760000000000,"fiatCurrency":"CNY","amount":"7200","cryptoCurrency":"USDT","cryptoAmount":"1000","transactionType":"BUY","status":"SUCCESS"}]}`)
+		if r.URL.Query().Get("page") == "1" {
+			_, _ = io.WriteString(w, `{"data":[{"orderNo":"c2c-1","createTime":1760000000000,"fiatCurrency":"CNY","amount":"7200","cryptoCurrency":"USDT","cryptoAmount":"1000","transactionType":"BUY","status":"SUCCESS"}]}`)
+			return
+		}
+		if r.URL.Query().Get("page") == "2" {
+			_, _ = io.WriteString(w, `{"data":[{"orderNo":"c2c-2","createTime":1760000100000,"fiatCurrency":"CNY","amount":"3600","cryptoCurrency":"USDT","cryptoAmount":"500","transactionType":"BUY","status":"SUCCESS"}]}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"data":[]}`)
 	}))
 	defer server.Close()
-	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client()}
+	client := &BinanceClient{BaseURL: server.URL, APIKey: "key", APISecret: "secret", HTTPClient: server.Client(), WalletPageSize: 1}
 	events, err := client.FetchFiatOrders(context.Background(), time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 1 || events[0].EventType != "fiat_buy" || events[0].EventID != "c2c-1" || events[0].BaseAsset != "USDT" || !events[0].Quantity.Equal(decimal.RequireFromString("1000")) || !events[0].QuoteQuantity.Equal(decimal.RequireFromString("7200")) {
-		t.Fatalf("events=%+v", events)
+	if len(events) != 2 || events[0].EventType != "fiat_buy" || events[0].EventID != "c2c-1" || events[0].BaseAsset != "USDT" || !events[0].Quantity.Equal(decimal.RequireFromString("1000")) || !events[0].QuoteQuantity.Equal(decimal.RequireFromString("7200")) {
+		t.Fatalf("分页 fiat events=%+v", events)
 	}
 }

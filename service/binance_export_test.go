@@ -53,3 +53,26 @@ func TestWriteBinanceTransactionsCreatesCryptoMonthAndDeclarations(t *testing.T)
 		t.Fatalf("账户声明重复或缺失:\n%s", declarations)
 	}
 }
+
+func TestWriteBinanceTransactionsMergesExistingMonth(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "2026", "2-crypto")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := "2026-09-01 * \"Binance\" \"old\"\n    source_id: \"old\"\n    Assets:Binance:BTC  1 BTC\n\n"
+	if err := os.WriteFile(filepath.Join(dir, "09.bean"), []byte(old), 0644); err != nil {
+		t.Fatal(err)
+	}
+	txn := GeneratedTransaction{Date: time.Date(2026, 9, 2, 0, 0, 0, 0, time.Local), Time: "12:00:00", Payee: "Binance", Narration: "new", Metadata: map[string]string{"source_id": "new"}, Postings: []GeneratedPosting{{Account: "Assets:Binance:BTC", Currency: "BTC", Units: decimal.RequireFromString("2")}}}
+	if err := WriteBinanceTransactions([]GeneratedTransaction{txn}, base, "2-crypto"); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "09.bean"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), `source_id: "old"`) || !strings.Contains(string(content), `source_id: "new"`) {
+		t.Fatalf("旧交易被覆盖: %s", content)
+	}
+}

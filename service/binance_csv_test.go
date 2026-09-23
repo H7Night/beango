@@ -3,6 +3,7 @@ package service
 import (
 	"archive/zip"
 	"encoding/csv"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -131,5 +132,41 @@ func TestParseFuturesFixtureIsUnsupported(t *testing.T) {
 	}
 	if !hasDiagnosticContaining(result.Diagnostics, "Futures") {
 		t.Fatal("应明确报告 Futures 暂不支持")
+	}
+}
+
+func TestParseBinanceZipCombinesMultipleCSVs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "multi.zip")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := zip.NewWriter(file)
+	header := "时间,订单号,交易对,类型,方向,订单价格,订单金额,时间,已执行,平均价格,交易总额,状态\n"
+	rows := []string{
+		header + "2026-01-01 00:00:00,one,BTCUSDT,Market,BUY,0,0.01BTC,2026-01-01 00:00:00,0.01BTC,65000,650USDT,FILLED\n",
+		header + "2026-01-02 00:00:00,two,ETHUSDT,Market,BUY,0,1ETH,2026-01-02 00:00:00,1ETH,2000,2000USDT,FILLED\n",
+	}
+	for i, content := range rows {
+		entry, err := archive.Create("part" + string(rune('1'+i)) + ".csv")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := entry.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ParseBinanceZip(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Events) != 2 {
+		t.Fatalf("多 CSV 应合并为 2 个事件，实际 %d", len(result.Events))
 	}
 }

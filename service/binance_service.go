@@ -49,8 +49,7 @@ func RunBinanceCLI(options BinanceCLIOptions) error {
 		for _, fetch := range []func(context.Context, time.Time, time.Time) ([]BinanceEvent, error){client.FetchDeposits, client.FetchWithdrawals, client.FetchFiatOrders} {
 			items, fetchErr := fetch(ctx, from, to)
 			if fetchErr != nil {
-				diagnostics = append(diagnostics, BinanceDiagnostic{Source: "binance-api", Reason: fetchErr.Error()})
-				continue
+				return fmt.Errorf("Binance API 同步失败，未生成部分结果: %w", fetchErr)
 			}
 			events = append(events, items...)
 		}

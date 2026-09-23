@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // RenderBinanceTransaction 将内部交易渲染成 Beancount 文本。
@@ -59,7 +61,7 @@ func WriteBinanceTransactions(txns []GeneratedTransaction, baseDir, cryptoFolder
 			if strings.HasPrefix(posting.Account, "Assets:Binance:") {
 				assetsByYear[year][posting.Account] = true
 			}
-			if posting.Currency != "" {
+			if posting.Currency != "" && !isFiatCurrency(posting.Currency) {
 				assetsByYear[year]["commodity:"+posting.Currency] = true
 			}
 		}
@@ -76,11 +78,38 @@ func WriteBinanceTransactions(txns []GeneratedTransaction, baseDir, cryptoFolder
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
-		var b strings.Builder
-		for _, entry := range entries {
-			b.WriteString(RenderBinanceTransaction(entry))
+		beanFile := filepath.Join(dir, month[5:]+".bean")
+		existing := []string{}
+		if content, err := os.ReadFile(beanFile); err == nil {
+			existing = parseBeanFileText(string(content))
+		} else if !os.IsNotExist(err) {
+			return err
 		}
-		if err := os.WriteFile(filepath.Join(dir, month[5:]+".bean"), []byte(b.String()), 0644); err != nil {
+		seen := make(map[string]bool)
+		for _, entry := range existing {
+			if id := extractBinanceSourceID(entry); id != "" {
+				seen[id] = true
+			}
+		}
+		combined := append([]string{}, existing...)
+		for _, entry := range entries {
+			rendered := RenderBinanceTransaction(entry)
+			id := extractBinanceSourceID(rendered)
+			if id != "" && seen[id] {
+				continue
+			}
+			if id != "" {
+				seen[id] = true
+			}
+			combined = append(combined, rendered)
+		}
+		sort.SliceStable(combined, func(i, j int) bool { return binanceEntryDate(combined[i]).Before(binanceEntryDate(combined[j])) })
+		var b strings.Builder
+		for _, entry := range combined {
+			b.WriteString(strings.TrimSpace(entry))
+			b.WriteString("\n\n")
+		}
+		if err := os.WriteFile(beanFile, []byte(b.String()), 0644); err != nil {
 			return err
 		}
 	}
@@ -102,9 +131,69 @@ func WriteBinanceTransactions(txns []GeneratedTransaction, baseDir, cryptoFolder
 			}
 			fmt.Fprintf(&b, "1970-01-01 open %s\n", key)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "00.bean"), []byte(b.String()), 0644); err != nil {
+		declarationFile := filepath.Join(dir, "00.bean")
+		if existing, err := os.ReadFile(declarationFile); err == nil {
+			b.Reset()
+			b.Write(existing)
+			for _, key := range keys {
+				declaration := declarationForKey(key)
+				if !strings.Contains(string(existing), declaration) {
+					b.WriteString(declaration)
+				}
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		if err := os.WriteFile(declarationFile, []byte(b.String()), 0644); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+var binanceSourceIDRe = regexp.MustCompile(`(?m)^\s+source_id:\s+"([^"]+)"`)
+
+func parseBeanFileText(content string) []string {
+	content = strings.TrimSpace(strings.ReplaceAll(content, "\r\n", "\n"))
+	if content == "" {
+		return nil
+	}
+	return regexp.MustCompile(`\n\s*\n`).Split(content, -1)
+}
+
+func extractBinanceSourceID(entry string) string {
+	match := binanceSourceIDRe.FindStringSubmatch(entry)
+	if len(match) == 2 {
+		return match[1]
+	}
+	return ""
+}
+
+func binanceEntryDate(entry string) time.Time {
+	line := strings.TrimSpace(strings.SplitN(entry, "\n", 2)[0])
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return time.Time{}
+	}
+	date, err := time.Parse("2006-01-02", fields[0])
+	if err != nil {
+		return time.Time{}
+	}
+	return date
+}
+
+func declarationForKey(key string) string {
+	if strings.HasPrefix(key, "commodity:") {
+		return fmt.Sprintf("1970-01-01 commodity %s\n\n", strings.TrimPrefix(key, "commodity:"))
+	}
+	return fmt.Sprintf("1970-01-01 open %s\n", key)
+}
+
+func isFiatCurrency(currency string) bool {
+	switch strings.ToUpper(currency) {
+	case "CNY", "USD", "EUR", "JPY", "HKD", "GBP":
+		return true
+	default:
+		return false
+	}
 }

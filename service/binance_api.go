@@ -20,11 +20,12 @@ import (
 
 // BinanceClient 是 Binance signed USER_DATA API 的只读客户端。
 type BinanceClient struct {
-	BaseURL       string
-	APIKey        string
-	APISecret     string
-	HTTPClient    *http.Client
-	TradePageSize int
+	BaseURL        string
+	APIKey         string
+	APISecret      string
+	HTTPClient     *http.Client
+	TradePageSize  int
+	WalletPageSize int
 }
 
 func NewBinanceClientFromEnv() (*BinanceClient, error) {
@@ -38,11 +39,12 @@ func NewBinanceClientFromEnv() (*BinanceClient, error) {
 		baseURL = "https://api.binance.com"
 	}
 	return &BinanceClient{
-		BaseURL:       baseURL,
-		APIKey:        key,
-		APISecret:     secret,
-		HTTPClient:    &http.Client{Timeout: 30 * time.Second},
-		TradePageSize: 1000,
+		BaseURL:        baseURL,
+		APIKey:         key,
+		APISecret:      secret,
+		HTTPClient:     &http.Client{Timeout: 30 * time.Second},
+		TradePageSize:  1000,
+		WalletPageSize: 1000,
 	}, nil
 }
 
@@ -166,7 +168,7 @@ func spotTradeEvent(row binanceSpotTradeResponse) (BinanceEvent, error) {
 		return BinanceEvent{}, fmt.Errorf("解析 API commission 失败: %w", err)
 	}
 	return BinanceEvent{
-		Source: "binance-api", EventID: strconv.FormatInt(row.ID, 10), EventType: "spot_trade",
+		Source: "binance-api", EventID: strconv.FormatInt(row.ID, 10), OrderID: strconv.FormatInt(row.OrderID, 10), EventType: "spot_trade",
 		Symbol: strings.ToUpper(row.Symbol), BaseAsset: base, QuoteAsset: quote,
 		Side: map[bool]string{true: "buy", false: "sell"}[row.IsBuyer],
 		Time: time.UnixMilli(row.Time), Quantity: quantity, QuoteQuantity: quoteQuantity,
@@ -192,18 +194,26 @@ type binanceDepositResponse struct {
 }
 
 func (c *BinanceClient) FetchDeposits(ctx context.Context, from, to time.Time) ([]BinanceEvent, error) {
-	var rows []binanceDepositResponse
-	params := timeWindowParams(from, to)
-	if err := c.SignedGET(ctx, "/sapi/v1/capital/deposit/hisrec", params, &rows); err != nil {
-		return nil, err
-	}
-	events := make([]BinanceEvent, 0, len(rows))
-	for _, row := range rows {
-		amount, err := decimal.NewFromString(row.Amount)
-		if err != nil {
-			return nil, fmt.Errorf("解析 deposit amount 失败: %w", err)
+	limit := walletPageSize(c, 1000)
+	var events []BinanceEvent
+	for offset := 0; ; offset += limit {
+		params := timeWindowParams(from, to)
+		params.Set("offset", strconv.Itoa(offset))
+		params.Set("limit", strconv.Itoa(limit))
+		var rows []binanceDepositResponse
+		if err := c.SignedGET(ctx, "/sapi/v1/capital/deposit/hisrec", params, &rows); err != nil {
+			return nil, err
 		}
-		events = append(events, BinanceEvent{Source: "binance-api", EventID: firstNonEmpty(row.TxID, row.ID), EventType: "deposit", BaseAsset: strings.ToUpper(row.Coin), Quantity: amount, Time: time.UnixMilli(row.InsertTime), Raw: map[string]string{"status": strconv.Itoa(row.Status)}})
+		for _, row := range rows {
+			amount, err := decimal.NewFromString(row.Amount)
+			if err != nil {
+				return nil, fmt.Errorf("解析 deposit amount 失败: %w", err)
+			}
+			events = append(events, BinanceEvent{Source: "binance-api", EventID: firstNonEmpty(row.TxID, row.ID), EventType: "deposit", BaseAsset: strings.ToUpper(row.Coin), Quantity: amount, Time: time.UnixMilli(row.InsertTime), Raw: map[string]string{"status": strconv.Itoa(row.Status)}})
+		}
+		if len(rows) < limit {
+			break
+		}
 	}
 	return events, nil
 }
@@ -218,21 +228,34 @@ type binanceWithdrawResponse struct {
 }
 
 func (c *BinanceClient) FetchWithdrawals(ctx context.Context, from, to time.Time) ([]BinanceEvent, error) {
-	var rows []binanceWithdrawResponse
-	if err := c.SignedGET(ctx, "/sapi/v1/capital/withdraw/history", timeWindowParams(from, to), &rows); err != nil {
-		return nil, err
-	}
-	events := make([]BinanceEvent, 0, len(rows))
-	for _, row := range rows {
-		amount, err := decimal.NewFromString(row.Amount)
-		if err != nil {
-			return nil, fmt.Errorf("解析 withdrawal amount 失败: %w", err)
+	limit := walletPageSize(c, 1000)
+	var events []BinanceEvent
+	for offset := 0; ; offset += limit {
+		params := timeWindowParams(from, to)
+		params.Set("offset", strconv.Itoa(offset))
+		params.Set("limit", strconv.Itoa(limit))
+		var rows []binanceWithdrawResponse
+		if err := c.SignedGET(ctx, "/sapi/v1/capital/withdraw/history", params, &rows); err != nil {
+			return nil, err
 		}
-		fee, err := decimal.NewFromString(row.TransactionFee)
-		if err != nil {
-			return nil, fmt.Errorf("解析 withdrawal fee 失败: %w", err)
+		for _, row := range rows {
+			amount, err := decimal.NewFromString(row.Amount)
+			if err != nil {
+				return nil, fmt.Errorf("解析 withdrawal amount 失败: %w", err)
+			}
+			fee, err := decimal.NewFromString(row.TransactionFee)
+			if err != nil {
+				return nil, fmt.Errorf("解析 withdrawal fee 失败: %w", err)
+			}
+			applyTime, parseErr := parseBinanceAPITime(row.ApplyTime)
+			if parseErr != nil {
+				return nil, fmt.Errorf("解析 withdrawal applyTime 失败: %w", parseErr)
+			}
+			events = append(events, BinanceEvent{Source: "binance-api", EventID: firstNonEmpty(row.TxID, row.ID), EventType: "withdrawal", BaseAsset: strings.ToUpper(row.Coin), Quantity: amount, Fee: fee, FeeAsset: strings.ToUpper(row.Coin), Time: applyTime, Raw: map[string]string{"applyTime": row.ApplyTime}})
 		}
-		events = append(events, BinanceEvent{Source: "binance-api", EventID: firstNonEmpty(row.TxID, row.ID), EventType: "withdrawal", BaseAsset: strings.ToUpper(row.Coin), Quantity: amount, Fee: fee, FeeAsset: strings.ToUpper(row.Coin), Raw: map[string]string{"applyTime": row.ApplyTime}})
+		if len(rows) < limit {
+			break
+		}
 	}
 	return events, nil
 }
@@ -248,37 +271,67 @@ func (c *BinanceClient) FetchFiatOrders(ctx context.Context, from, to time.Time)
 		TransactionType string `json:"transactionType"`
 		Status          string `json:"status"`
 	}
-	var response struct {
-		Data []fiatOrder `json:"data"`
-	}
-	if err := c.SignedGET(ctx, "/sapi/v1/fiat/orders", timeWindowParams(from, to), &response); err != nil {
-		return nil, err
-	}
-	events := make([]BinanceEvent, 0, len(response.Data))
-	for _, row := range response.Data {
-		if !strings.EqualFold(row.Status, "SUCCESS") || !strings.EqualFold(row.TransactionType, "BUY") {
-			continue
+	rowsPerPage := walletPageSize(c, 500)
+	var events []BinanceEvent
+	for page := 1; ; page++ {
+		params := url.Values{}
+		if !from.IsZero() {
+			params.Set("beginTime", strconv.FormatInt(from.UnixMilli(), 10))
 		}
-		quantity, err := decimal.NewFromString(row.CryptoAmount)
-		if err != nil {
-			return nil, fmt.Errorf("解析 C2C cryptoAmount 失败: %w", err)
+		if !to.IsZero() {
+			params.Set("endTime", strconv.FormatInt(to.UnixMilli(), 10))
 		}
-		amount, err := decimal.NewFromString(row.Amount)
-		if err != nil {
-			return nil, fmt.Errorf("解析 C2C amount 失败: %w", err)
+		params.Set("page", strconv.Itoa(page))
+		params.Set("rows", strconv.Itoa(rowsPerPage))
+		var response struct {
+			Data []fiatOrder `json:"data"`
 		}
-		price := decimal.Zero
-		if !quantity.IsZero() {
-			price = amount.Div(quantity)
+		if err := c.SignedGET(ctx, "/sapi/v1/fiat/orders", params, &response); err != nil {
+			return nil, err
 		}
-		events = append(events, BinanceEvent{
-			Source: "binance-api", EventID: row.OrderNo, EventType: "fiat_buy",
-			BaseAsset: strings.ToUpper(row.CryptoCurrency), QuoteAsset: strings.ToUpper(row.FiatCurrency), Side: "buy",
-			Time: time.UnixMilli(row.CreateTime), Quantity: quantity, QuoteQuantity: amount, Price: price,
-			Raw: map[string]string{"status": row.Status, "transactionType": row.TransactionType},
-		})
+		for _, row := range response.Data {
+			if !strings.EqualFold(row.Status, "SUCCESS") || !strings.EqualFold(row.TransactionType, "BUY") {
+				continue
+			}
+			quantity, err := decimal.NewFromString(row.CryptoAmount)
+			if err != nil {
+				return nil, fmt.Errorf("解析 C2C cryptoAmount 失败: %w", err)
+			}
+			amount, err := decimal.NewFromString(row.Amount)
+			if err != nil {
+				return nil, fmt.Errorf("解析 C2C amount 失败: %w", err)
+			}
+			price := decimal.Zero
+			if !quantity.IsZero() {
+				price = amount.Div(quantity)
+			}
+			events = append(events, BinanceEvent{
+				Source: "binance-api", EventID: row.OrderNo, EventType: "fiat_buy",
+				BaseAsset: strings.ToUpper(row.CryptoCurrency), QuoteAsset: strings.ToUpper(row.FiatCurrency), Side: "buy",
+				Time: time.UnixMilli(row.CreateTime), Quantity: quantity, QuoteQuantity: amount, Price: price,
+				Raw: map[string]string{"status": row.Status, "transactionType": row.TransactionType},
+			})
+		}
+		if len(response.Data) < rowsPerPage {
+			break
+		}
 	}
 	return events, nil
+}
+
+func walletPageSize(client *BinanceClient, max int) int {
+	size := client.WalletPageSize
+	if size <= 0 || size > max {
+		return max
+	}
+	return size
+}
+
+func parseBinanceAPITime(value string) (time.Time, error) {
+	if millis, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return time.UnixMilli(millis), nil
+	}
+	return time.ParseInLocation("2006-01-02 15:04:05", value, time.Local)
 }
 
 func timeWindowParams(from, to time.Time) url.Values {
