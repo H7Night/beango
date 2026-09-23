@@ -21,7 +21,15 @@ beango -type wechat wechat_record.xlsx -merge
 
 # 全量确认（标记全部为已确认 *）
 beango -type alipay alipay_record.csv -p
+
+# 解析 Binance Spot ZIP/CSV（先 dry-run）
+beango -type binance "<binance-spot-export.zip>" --dry-run
+
+# Binance API 同步（只读 API Key 从环境变量读取）
+beango -type binance -sync --from 2020-01-01 --to 2026-12-31 --symbols BTCUSDT,ETHUSDT
 ```
+
+Binance 使用完整商品/FIFO 记账：现有 `Assets:Crypto` 作为 C2C 买币的 CNY 账户，Binance 资产使用 `Assets:Binance:<币种>`。设置 `BINANCE_API_KEY`、`BINANCE_API_SECRET`，网络受限时设置 `HTTPS_PROXY`。现阶段 Futures 只识别并报告暂不支持。
 
 ### Web 模式
 

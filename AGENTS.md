@@ -14,7 +14,8 @@
 ## Project
 - Go 1.24.2（module `beango`），入口 `main.go`：CLI 转换（flag 与位置参数任意顺序）或 Web 服务（gin，默认端口 10777）
 - 配置（YAML，`config/`）：`beango.yml`（输出目录/端口/兜底账户，引导路径优先 `config/beango.yml`、回退 `./beango.yml`）、`account_map.yml`（关键词→Beancount 账户）、`commodity_map.yml`（商品→支出/收入/跳过）
-- 输出：`test/out/<运行日期>/<年份>/<0-default|1-securities>/<月>.bean`（按年月分组，交易按时序倒序写）
+- Binance 导入：`BINANCE_API_KEY` / `BINANCE_API_SECRET` 只读环境变量；可设置 `HTTPS_PROXY`；现货/C2C/充提输出到 `2-crypto`，Futures 当前只诊断不入账。
+- 输出：`test/out/<运行日期>/<年份>/<0-default|1-securities|2-crypto>/<月>.bean`（按年月分组，交易按时序倒序写）
 - 账本本体在独立仓库 `../beancount`（本目录 `beancount` 为符号链接），`main.bean` 按年份 include；校验用其 `.venv` 里的 beancount
 
 ## Commands
@@ -25,6 +26,11 @@
   - 非 `-merge` 会**删除并重建**当日输出目录，故多文件转换需先转第一个（非 merge），其余用 `-merge` 追加
   - `-merge` 追加时按 uuid 自动去重（无 uuid 的条目不去重）
   - `-p/--pass` 全量确认：所有条目标记为已确认 `*`（默认未匹配条目标 `!`）
+- Binance CLI: `bin/beango.exe -type binance <ZIP|CSV> [--dry-run]` 或 `bin/beango.exe -type binance -sync --from YYYY-MM-DD --to YYYY-MM-DD --symbols BTCUSDT,ETHUSDT`
+  - API 凭据只从 `BINANCE_API_KEY` / `BINANCE_API_SECRET` 读取；网络受限时设置 `HTTPS_PROXY`
+  - Spot CSV 没有手续费字段，不会伪造手续费；API 返回的 commission 才会进入手续费分录
+  - 现有 `Assets:Crypto` 是 C2C 买币的 CNY 账户，新币种账户为 `Assets:Binance:<币种>`
+  - `--dry-run` 只输出预览；Futures ZIP 当前只诊断、不生成现货分录
 - 账本校验: `cd ../beancount && .venv/Scripts/python.exe -m beancount.scripts.check main.bean`
 - 脚本（`scripts/`，python）：`sort_bean_files.py` 账本按时序正序排序；`check_bean_order.py` 校验排序；`check_bean_duplicates.py` 检查重复 uuid；`account_balance.py` 查询账户时点余额（含 pad）；`reconcile*.py`/`match_*.py` 对账
 
