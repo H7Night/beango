@@ -14,13 +14,14 @@ import (
 )
 
 type BinanceCLIOptions struct {
-	Sync      bool
-	DryRun    bool
-	From      string
-	To        string
-	Symbols   []string
-	Input     string
-	OutputDir string
+	Sync         bool
+	DryRun       bool
+	From         string
+	To           string
+	Symbols      []string
+	Input        string
+	OutputDir    string
+	CryptoFolder string
 }
 
 func RunBinanceCLI(options BinanceCLIOptions) error {
@@ -100,7 +101,11 @@ func RunBinanceCLI(options BinanceCLIOptions) error {
 			diagnostics = append(diagnostics, BinanceDiagnostic{Source: options.Input, Reason: "原始 Binance 文件归档失败: " + archiveErr.Error()})
 		}
 	}
-	if err := WriteBinanceTransactions(transactions, outputDir, model.GetConfigString("cryptoFolder", "2-crypto")); err != nil {
+	cryptoFolder := options.CryptoFolder
+	if cryptoFolder == "" {
+		cryptoFolder = model.GetConfigString("cryptoFolder", "2-crypto")
+	}
+	if err := WriteBinanceTransactions(transactions, outputDir, cryptoFolder); err != nil {
 		return err
 	}
 	state := map[string]any{"updated_at": time.Now().Format(time.RFC3339), "from": options.From, "to": options.To, "symbols": options.Symbols, "event_count": len(events), "transaction_count": len(transactions)}

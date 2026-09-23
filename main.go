@@ -24,6 +24,7 @@ type cliOptions struct {
 	binanceSync, dryRun   bool
 	from, to              string
 	symbols               []string
+	cryptoFolder          string
 	args                  []string
 }
 
@@ -102,6 +103,14 @@ func parseArgs(raw []string) (cliOptions, error) {
 					options.symbols = append(options.symbols, symbol)
 				}
 			}
+		case arg == "--crypto-folder" || arg == "-crypto-folder":
+			item, err := value(raw, &i, arg)
+			if err != nil {
+				return cliOptions{}, err
+			}
+			options.cryptoFolder = item
+		case strings.HasPrefix(arg, "--crypto-folder="):
+			options.cryptoFolder = strings.TrimPrefix(arg, "--crypto-folder=")
 		case strings.HasPrefix(arg, "-"):
 			return cliOptions{}, fmt.Errorf("未知选项: %s", arg)
 		default:
@@ -122,6 +131,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  --from/--to YYYY-MM-DD\n    \tBinance 同步时间范围\n")
 	fmt.Fprintf(os.Stderr, "  --symbols BTCUSDT,ETHUSDT\n    \tBinance API 查询交易对\n")
 	fmt.Fprintf(os.Stderr, "  --dry-run\n    \tBinance 只预览，不写 bean 文件\n")
+	fmt.Fprintf(os.Stderr, "  --crypto-folder NAME\n    \tBinance 输出子目录 (默认: 2-crypto)\n")
 }
 
 func main() {
@@ -140,7 +150,7 @@ func main() {
 	// 如果指定了 -type，走 CLI 模式
 	if options.sourceType != "" {
 		if options.sourceType == "binance" {
-			if err := service.RunBinanceCLI(service.BinanceCLIOptions{Sync: options.binanceSync, DryRun: options.dryRun, From: options.from, To: options.to, Symbols: options.symbols, Input: firstArg(options.args), OutputDir: options.outputDir}); err != nil {
+			if err := service.RunBinanceCLI(service.BinanceCLIOptions{Sync: options.binanceSync, DryRun: options.dryRun, From: options.from, To: options.to, Symbols: options.symbols, Input: firstArg(options.args), OutputDir: options.outputDir, CryptoFolder: options.cryptoFolder}); err != nil {
 				fmt.Fprintf(os.Stderr, "错误: %v\n", err)
 				os.Exit(1)
 			}

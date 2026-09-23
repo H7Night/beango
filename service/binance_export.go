@@ -123,32 +123,75 @@ func WriteBinanceTransactions(txns []GeneratedTransaction, baseDir, cryptoFolder
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		var b strings.Builder
+		declarations := make([]string, 0, len(keys)+len(fixedCryptoDeclarations))
 		for _, key := range keys {
-			if strings.HasPrefix(key, "commodity:") {
-				fmt.Fprintf(&b, "1970-01-01 commodity %s\n\n", strings.TrimPrefix(key, "commodity:"))
-				continue
-			}
-			fmt.Fprintf(&b, "1970-01-01 open %s\n", key)
+			declarations = append(declarations, declarationForKey(key))
 		}
-		declarationFile := filepath.Join(dir, "00.bean")
-		if existing, err := os.ReadFile(declarationFile); err == nil {
-			b.Reset()
-			b.Write(existing)
-			for _, key := range keys {
-				declaration := declarationForKey(key)
-				if !strings.Contains(string(existing), declaration) {
-					b.WriteString(declaration)
-				}
-			}
-		} else if !os.IsNotExist(err) {
+		declarations = append(declarations, fixedCryptoDeclarations...)
+		if err := writeMergedLines(filepath.Join(dir, "accounts.bean"), declarations); err != nil {
 			return err
 		}
-		if err := os.WriteFile(declarationFile, []byte(b.String()), 0644); err != nil {
+		months, err := listMonthBeans(dir)
+		if err != nil {
+			return err
+		}
+		var b strings.Builder
+		b.WriteString("include \"accounts.bean\"\n")
+		for _, month := range months {
+			fmt.Fprintf(&b, "include %q\n", month)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "00.bean"), []byte(b.String()), 0644); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+var fixedCryptoDeclarations = []string{
+	"1970-01-01 open Income:CapitalGains:Crypto",
+	"1970-01-01 open Expenses:CapitalLoss:Crypto",
+	"1970-01-01 open Expenses:Crypto:Fees:Trading",
+	"1970-01-01 open Expenses:Crypto:Fees:Withdrawal",
+}
+
+func writeMergedLines(path string, lines []string) error {
+	existing := ""
+	if content, err := os.ReadFile(path); err == nil {
+		existing = string(content)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	var b strings.Builder
+	b.WriteString(existing)
+	if existing != "" && !strings.HasSuffix(existing, "\n") {
+		b.WriteString("\n")
+	}
+	for _, line := range lines {
+		if line == "" || strings.Contains(existing, line) {
+			continue
+		}
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func listMonthBeans(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var months []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if matched, _ := regexp.MatchString(`^\d{2}\.bean$`, entry.Name()); matched {
+			months = append(months, entry.Name())
+		}
+	}
+	sort.Strings(months)
+	return months, nil
 }
 
 var binanceSourceIDRe = regexp.MustCompile(`(?m)^\s+source_id:\s+"([^"]+)"`)
@@ -184,9 +227,9 @@ func binanceEntryDate(entry string) time.Time {
 
 func declarationForKey(key string) string {
 	if strings.HasPrefix(key, "commodity:") {
-		return fmt.Sprintf("1970-01-01 commodity %s\n\n", strings.TrimPrefix(key, "commodity:"))
+		return fmt.Sprintf("1970-01-01 commodity %s", strings.TrimPrefix(key, "commodity:"))
 	}
-	return fmt.Sprintf("1970-01-01 open %s\n", key)
+	return fmt.Sprintf("1970-01-01 open %s", key)
 }
 
 func isFiatCurrency(currency string) bool {

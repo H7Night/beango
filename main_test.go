@@ -15,6 +15,16 @@ func TestParseBinanceArgs(t *testing.T) {
 	}
 }
 
+func TestParseBinanceCryptoFolderFlag(t *testing.T) {
+	got, err := parseArgs([]string{"-type", "binance", "spot.zip", "--crypto-folder", "3-crypto"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.cryptoFolder != "3-crypto" {
+		t.Fatalf("options=%+v", got)
+	}
+}
+
 func TestParseArgsAlipayMergeAndPass(t *testing.T) {
 	got, err := parseArgs([]string{"-type", "alipay", "file.csv", "-output", "out", "-merge", "-p"})
 	if err != nil {

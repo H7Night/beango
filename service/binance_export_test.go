@@ -45,12 +45,45 @@ func TestWriteBinanceTransactionsCreatesCryptoMonthAndDeclarations(t *testing.T)
 	if strings.Index(text, `source_id: "1"`) > strings.Index(text, `source_id: "2"`) {
 		t.Fatal("交易未按时间正序输出")
 	}
-	declarations, err := os.ReadFile(filepath.Join(base, "2026", "2-crypto", "00.bean"))
+	declarations, err := os.ReadFile(filepath.Join(base, "2026", "2-crypto", "accounts.bean"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Count(string(declarations), "open Assets:Binance:") != 2 {
 		t.Fatalf("账户声明重复或缺失:\n%s", declarations)
+	}
+}
+
+func TestWriteBinanceTransactionsWritesIncludeListAndAccounts(t *testing.T) {
+	base := t.TempDir()
+	txns := []GeneratedTransaction{
+		{Date: time.Date(2026, 9, 2, 0, 0, 0, 0, time.Local), Time: "12:00:00", Payee: "Binance", Narration: "buy", Metadata: map[string]string{"source_id": "1"}, Postings: []GeneratedPosting{
+			{Account: "Assets:Binance:BTC", Currency: "BTC", Units: decimal.RequireFromString("0.01")},
+			{Account: "Expenses:Crypto:Fees:Trading", Currency: "USDT", Units: decimal.RequireFromString("0.5")},
+		}},
+	}
+	if err := WriteBinanceTransactions(txns, base, "3-crypto"); err != nil {
+		t.Fatal(err)
+	}
+	index, err := os.ReadFile(filepath.Join(base, "2026", "3-crypto", "00.bean"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(index)
+	if !strings.Contains(text, `include "accounts.bean"`) || !strings.Contains(text, `include "09.bean"`) {
+		t.Fatalf("00.bean 应为 include 列表:\n%s", text)
+	}
+	if strings.Contains(text, "1970-01-01") {
+		t.Fatalf("00.bean 不应包含声明:\n%s", text)
+	}
+	accounts, err := os.ReadFile(filepath.Join(base, "2026", "3-crypto", "accounts.bean"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"open Assets:Binance:BTC", "commodity BTC", "open Income:CapitalGains:Crypto", "open Expenses:Crypto:Fees:Trading"} {
+		if !strings.Contains(string(accounts), want) {
+			t.Errorf("accounts.bean 缺少 %q:\n%s", want, accounts)
+		}
 	}
 }
 

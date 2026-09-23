@@ -42,6 +42,14 @@ type GeneratedTransaction struct {
 	Postings  []GeneratedPosting
 }
 
+// cashLikeAssets 是按「现金类」处理的稳定币：不建成本批次，用 @ 价格表示兑换。
+var cashLikeAssets = map[string]bool{
+	"USDT": true, "USDC": true, "BUSD": true, "FDUSD": true, "TUSD": true,
+	"USDP": true, "DAI": true, "USD": true,
+}
+
+func isCashLikeAsset(asset string) bool { return cashLikeAssets[strings.ToUpper(asset)] }
+
 func NewLotBook() *LotBook {
 	return &LotBook{Accounts: make(map[string][]Lot), Processed: make(map[string]bool)}
 }
@@ -66,29 +74,10 @@ func ApplyFIFO(book *LotBook, event BinanceEvent) (GeneratedTransaction, []Binan
 		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "外部充值缺少成本基础，未自动建批次", Raw: rawEvent(event)}}, nil
 	}
 	if event.EventType == "fiat_buy" || (event.EventType == "spot_trade" && event.Side == "buy") {
-		if event.Quantity.IsZero() || event.QuoteQuantity.IsNegative() || event.QuoteQuantity.IsZero() {
-			return GeneratedTransaction{}, nil, fmt.Errorf("买入事件数量或金额无效: %s", event.EventID)
-		}
-		cost := event.QuoteQuantity.Div(event.Quantity)
-		book.Accounts[event.BaseAsset] = append(book.Accounts[event.BaseAsset], Lot{Quantity: event.Quantity, Cost: cost, CostCurrency: event.QuoteAsset, AcquiredAt: event.Time, SourceID: event.EventID})
-		baseUnits := event.Quantity
-		if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
-			baseUnits = baseUnits.Sub(event.Fee)
-			txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
-		}
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: baseUnits, Cost: cost, CostCurrency: event.QuoteAsset, HasCost: true})
-		quoteAccount := cryptoAccount(event.QuoteAsset)
-		if event.EventType == "fiat_buy" && event.QuoteAsset == "CNY" {
-			quoteAccount = "Assets:Crypto"
-		}
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: quoteAccount, Currency: event.QuoteAsset, Units: event.QuoteQuantity.Neg()})
-		if event.FeeAsset != "" && event.FeeAsset != event.BaseAsset {
-			txn.Postings = appendFeePostings(&txn, event)
-		}
-		return txn, nil, nil
+		return applyBuyFIFO(book, event, txn)
 	}
 	if event.EventType == "spot_trade" && event.Side == "sell" {
-		return applySellFIFO(book, event, txn)
+		return applySell(book, event, txn)
 	}
 	if event.EventType == "withdrawal" {
 		return applyWithdrawalFIFO(book, event, txn)
@@ -96,40 +85,77 @@ func ApplyFIFO(book *LotBook, event BinanceEvent) (GeneratedTransaction, []Binan
 	return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "未知或暂不支持的 Binance 事件类型", Raw: rawEvent(event)}}, nil
 }
 
+func applyBuyFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) (GeneratedTransaction, []BinanceDiagnostic, error) {
+	if event.Quantity.IsZero() || event.QuoteQuantity.IsNegative() || event.QuoteQuantity.IsZero() {
+		return GeneratedTransaction{}, nil, fmt.Errorf("买入事件数量或金额无效: %s", event.EventID)
+	}
+	quoteAccount := cryptoAccount(event.QuoteAsset)
+	if event.EventType == "fiat_buy" && event.QuoteAsset == "CNY" {
+		quoteAccount = "Assets:Crypto"
+	}
+	if isCashLikeAsset(event.BaseAsset) {
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: event.Quantity, Price: event.Price, PriceCurrency: event.QuoteAsset, HasPrice: true})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: quoteAccount, Currency: event.QuoteAsset, Units: event.QuoteQuantity.Neg()})
+		if event.FeeAsset != "" && !event.Fee.IsZero() {
+			appendFeePostings(&txn, event)
+		}
+		return txn, nil, nil
+	}
+	unitCost := event.QuoteQuantity.Div(event.Quantity)
+	netQuantity := event.Quantity
+	if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
+		netQuantity = netQuantity.Sub(event.Fee)
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.BaseAsset, Units: event.Fee, Cost: unitCost, CostCurrency: event.QuoteAsset, HasCost: true})
+	}
+	book.Accounts[event.BaseAsset] = append(book.Accounts[event.BaseAsset], Lot{Quantity: netQuantity, Cost: unitCost, CostCurrency: event.QuoteAsset, AcquiredAt: event.Time, SourceID: event.EventID})
+	txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: netQuantity, Cost: unitCost, CostCurrency: event.QuoteAsset, HasCost: true})
+	txn.Postings = append(txn.Postings, GeneratedPosting{Account: quoteAccount, Currency: event.QuoteAsset, Units: event.QuoteQuantity.Neg()})
+	if event.FeeAsset != "" && event.FeeAsset != event.BaseAsset {
+		appendFeePostings(&txn, event)
+	}
+	return txn, nil, nil
+}
+
+func applySell(book *LotBook, event BinanceEvent, txn GeneratedTransaction) (GeneratedTransaction, []BinanceDiagnostic, error) {
+	if isCashLikeAsset(event.BaseAsset) {
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: event.Quantity.Neg(), Price: event.Price, PriceCurrency: event.QuoteAsset, HasPrice: true})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.QuoteAsset), Currency: event.QuoteAsset, Units: event.QuoteQuantity})
+		if event.FeeAsset != "" && !event.Fee.IsZero() {
+			appendFeePostings(&txn, event)
+		}
+		return txn, nil, nil
+	}
+	return applySellFIFO(book, event, txn)
+}
+
 func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) (GeneratedTransaction, []BinanceDiagnostic, error) {
-	lots := book.Accounts[event.BaseAsset]
-	remaining := event.Quantity
-	totalCost := decimal.Zero
-	for _, lot := range lots {
-		if lot.CostCurrency != "" && lot.CostCurrency != event.QuoteAsset {
-			return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 成本货币与卖出报价货币不一致，未自动换汇计算收益", Raw: rawEvent(event)}}, nil
-		}
-		if remaining.GreaterThan(lot.Quantity) {
-			totalCost = totalCost.Add(lot.Quantity.Mul(lot.Cost))
-			remaining = remaining.Sub(lot.Quantity)
+	var matching, others []Lot
+	for _, lot := range book.Accounts[event.BaseAsset] {
+		if lot.CostCurrency == event.QuoteAsset {
+			matching = append(matching, lot)
 		} else {
-			totalCost = totalCost.Add(remaining.Mul(lot.Cost))
-			remaining = decimal.Zero
-			break
+			others = append(others, lot)
 		}
 	}
-	if remaining.GreaterThan(decimal.Zero) {
-		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 库存不足，无法安全计算卖出成本", Raw: rawEvent(event)}}, nil
-	}
-	requiredQuantity := event.Quantity
+	feeQuantity := decimal.Zero
 	if event.FeeAsset == event.BaseAsset {
-		requiredQuantity = requiredQuantity.Add(event.Fee)
+		feeQuantity = event.Fee
 	}
+	required := event.Quantity.Add(feeQuantity)
 	available := decimal.Zero
-	for _, lot := range lots {
+	for _, lot := range matching {
 		available = available.Add(lot.Quantity)
 	}
-	if available.LessThan(requiredQuantity) {
-		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 库存不足以覆盖卖出手续费", Raw: rawEvent(event)}}, nil
+	if available.LessThan(required) {
+		return GeneratedTransaction{}, []BinanceDiagnostic{{Source: event.Source, Reason: "FIFO 库存不足（成本货币 " + event.QuoteAsset + "）", Raw: rawEvent(event)}}, nil
 	}
-	remaining = requiredQuantity
+
+	remaining := required
+	saleRemaining := event.Quantity
+	costQuantity := decimal.Zero
+	costFee := decimal.Zero
 	var kept []Lot
-	for _, lot := range lots {
+	for _, lot := range matching {
 		if remaining.IsZero() {
 			kept = append(kept, lot)
 			continue
@@ -139,25 +165,33 @@ func applySellFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransaction) 
 			used = remaining
 		}
 		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.BaseAsset), Currency: event.BaseAsset, Units: used.Neg(), Cost: lot.Cost, CostCurrency: lot.CostCurrency, Price: event.Price, PriceCurrency: event.QuoteAsset, HasCost: true, HasPrice: true})
+		saleUsed := used
+		if saleUsed.GreaterThan(saleRemaining) {
+			saleUsed = saleRemaining
+		}
+		costQuantity = costQuantity.Add(saleUsed.Mul(lot.Cost))
+		costFee = costFee.Add(used.Sub(saleUsed).Mul(lot.Cost))
+		saleRemaining = saleRemaining.Sub(saleUsed)
 		remaining = remaining.Sub(used)
 		left := lot.Quantity.Sub(used)
 		if left.GreaterThan(decimal.Zero) {
 			kept = append(kept, Lot{Quantity: left, Cost: lot.Cost, CostCurrency: lot.CostCurrency, AcquiredAt: lot.AcquiredAt, SourceID: lot.SourceID})
 		}
 	}
-	book.Accounts[event.BaseAsset] = kept
+	book.Accounts[event.BaseAsset] = append(others, kept...)
+
 	proceeds := event.QuoteQuantity
 	txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.QuoteAsset), Currency: event.QuoteAsset, Units: proceeds})
-	gain := proceeds.Sub(totalCost)
+	gain := proceeds.Sub(costQuantity)
 	if gain.GreaterThan(decimal.Zero) {
 		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Income:CapitalGains:Crypto", Currency: event.QuoteAsset, Units: gain.Neg()})
 	} else if gain.LessThan(decimal.Zero) {
 		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:CapitalLoss:Crypto", Currency: event.QuoteAsset, Units: gain.Abs()})
 	}
-	if event.FeeAsset == event.BaseAsset && !event.Fee.IsZero() {
-		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee})
-	} else if !event.Fee.IsZero() {
-		txn.Postings = appendFeePostings(&txn, event)
+	if !feeQuantity.IsZero() {
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.BaseAsset, Units: feeQuantity, Cost: costFee.Div(feeQuantity), CostCurrency: event.QuoteAsset, HasCost: true})
+	} else if event.FeeAsset != "" && !event.Fee.IsZero() {
+		appendFeePostings(&txn, event)
 	}
 	return txn, nil, nil
 }
@@ -196,16 +230,14 @@ func applyWithdrawalFIFO(book *LotBook, event BinanceEvent, txn GeneratedTransac
 	return txn, nil, nil
 }
 
-func appendFeePostings(txn *GeneratedTransaction, event BinanceEvent) []GeneratedPosting {
+func appendFeePostings(txn *GeneratedTransaction, event BinanceEvent) {
 	if event.Fee.IsZero() || event.FeeAsset == "" {
-		return nil
+		return
 	}
-	postings := []GeneratedPosting{{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee}}
+	txn.Postings = append(txn.Postings, GeneratedPosting{Account: "Expenses:Crypto:Fees:Trading", Currency: event.FeeAsset, Units: event.Fee})
 	if event.FeeAsset == event.QuoteAsset {
-		postings = append(postings, GeneratedPosting{Account: cryptoAccount(event.FeeAsset), Currency: event.FeeAsset, Units: event.Fee.Neg()})
+		txn.Postings = append(txn.Postings, GeneratedPosting{Account: cryptoAccount(event.FeeAsset), Currency: event.FeeAsset, Units: event.Fee.Neg()})
 	}
-	txn.Postings = append(txn.Postings, postings...)
-	return postings
 }
 
 func cryptoAccount(asset string) string { return "Assets:Binance:" + strings.ToUpper(asset) }
