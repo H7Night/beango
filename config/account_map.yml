@@ -129,34 +129,34 @@ account_maps:
     account: Expenses:Transport:Car:Parking
     type: expense
   THE GUNDAM BASE:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   万代南梦宫:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   宅物仓:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   蛋蛋蛋:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   万代:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   超合金:
-    account: Expenses:Shopping:Collectibles
+    account: Expenses:Shopping:Toys
     type: expense
   on舰:
-    account: Expenses:Shopping:Skincare
+    account: Expenses:Shopping:Beauty
     type: expense
   宜家:
-    account: Expenses:Shopping:HomeGoods
+    account: Expenses:Shopping:HomeStuff
     type: expense
   拼多多:
-    account: Expenses:Shopping:HomeGoods
+    account: Expenses:Shopping:HomeStuff
     type: expense
   优衣库:
-    account: Expenses:Shopping:Apparel
+    account: Expenses:Shopping:Clothes
     type: expense
   闪魔:
     account: Expenses:Shopping:Electronics
@@ -189,19 +189,19 @@ account_maps:
     account: Expenses:Home:Delivery
     type: expense
   中国电信:
-    account: Expenses:Home:Mobile
+    account: Expenses:Home:Phone
     type: expense
   中国移动:
-    account: Expenses:Home:Mobile
+    account: Expenses:Home:Phone
     type: expense
   首艺造型:
-    account: Expenses:Home:Grooming
+    account: Expenses:Home:Haircut
     type: expense
   卡卡纯剪:
-    account: Expenses:Home:Grooming
+    account: Expenses:Home:Haircut
     type: expense
   Anomaly:
-    account: Expenses:Education:Developer
+    account: Expenses:Education:Software
     type: expense
   驾驶证:
     account: Expenses:Other
@@ -216,19 +216,19 @@ account_maps:
     account: Expenses:Food:Other
     type: expense
   日用百货:
-    account: Expenses:Shopping:HomeGoods
+    account: Expenses:Shopping:HomeStuff
     type: expense
   交通出行:
     account: Expenses:Other
     type: expense
   家居家装:
-    account: Expenses:Shopping:HomeGoods
+    account: Expenses:Shopping:HomeStuff
     type: expense
   文化休闲:
     account: Expenses:Entertainment:Other
     type: expense
   服饰美容:
-    account: Expenses:Shopping:Apparel
+    account: Expenses:Shopping:Clothes
     type: expense
   数码电器:
     account: Expenses:Shopping:Electronics
